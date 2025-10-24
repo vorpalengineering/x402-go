@@ -11,39 +11,51 @@ Client library for interacting with x402 facilitators.
 ```go
 import "github.com/vorpalengineering/x402-go/client"
 
+// Create new x402 client
 c := client.New("http://localhost:8080")
+
+// Verify Payment
 resp, err := c.Verify(&types.VerifyRequest{...})
+
+// Settle Payment
+res, err = c.Settle(&types.SettleRequest{...})
 ```
 
-### Facilitator (/facilitator)
+### Facilitator (`/facilitator`)
 
 Facilitator service implementation providing payment verification and settlement.
 
 Run the facilitator service:
+```
 go run ./cmd/facilitator
-
-Types (/types)
-
-Shared types used by both client and facilitator packages.
-
-Running the Facilitator
-
-go run ./cmd/facilitator
+```
 
 The service will start on port 8080 with the following endpoints:
 - POST /verify - Verify payment payloads
 - POST /settle - Settle payments on-chain
-EOF
 
-Install dependencies
+### Types (`/types`)
 
-go get github.com/gin-gonic/gin
-go mod tidy
+Shared types used by both client and facilitator packages.
 
-Build the facilitator (optional)
+```go
+// Verify types
+type VerifyRequest struct {
+	PaymentPayload interface{} `json:"payment_payload"`
+	Requirements   interface{} `json:"requirements"`
+}
+type VerifyResponse struct {
+	Valid   bool   `json:"valid"`
+	Message string `json:"message,omitempty"`
+}
 
-go build -o bin/facilitator ./cmd/facilitator
-
-Run the facilitator service
-
-go run ./cmd/facilitator
+// Settle types
+type SettleRequest struct {
+	PaymentPayload interface{} `json:"payment_payload"`
+}
+type SettleResponse struct {
+	TxHash  string `json:"tx_hash,omitempty"`
+	Status  string `json:"status"`
+	Message string `json:"message,omitempty"`
+}
+```
