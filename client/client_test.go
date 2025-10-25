@@ -123,9 +123,9 @@ func TestSettle(t *testing.T) {
 
 			// Return success response
 			resp := types.SettleResponse{
-				Success:   true,
-				TxHash:    "0xabc123",
-				NetworkId: "41",
+				Success:     true,
+				Transaction: "0xabc123",
+				Network:     "41",
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(resp)
@@ -151,19 +151,19 @@ func TestSettle(t *testing.T) {
 		if !resp.Success {
 			t.Errorf("Expected Success=true, got false")
 		}
-		if resp.TxHash != "0xabc123" {
-			t.Errorf("Expected TxHash='0xabc123', got '%s'", resp.TxHash)
+		if resp.Transaction != "0xabc123" {
+			t.Errorf("Expected TxHash='0xabc123', got '%s'", resp.Transaction)
 		}
-		if resp.NetworkId != "41" {
-			t.Errorf("Expected NetworkId='41', got '%s'", resp.NetworkId)
+		if resp.Network != "41" {
+			t.Errorf("Expected NetworkId='41', got '%s'", resp.Network)
 		}
 	})
 
 	t.Run("settlement failure", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			resp := types.SettleResponse{
-				Success: false,
-				Error:   "transaction reverted",
+				Success:     false,
+				ErrorReason: "transaction reverted",
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(resp)
@@ -184,8 +184,8 @@ func TestSettle(t *testing.T) {
 		if resp.Success {
 			t.Errorf("Expected Success=false, got true")
 		}
-		if resp.Error != "transaction reverted" {
-			t.Errorf("Expected Error='transaction reverted', got '%s'", resp.Error)
+		if resp.ErrorReason != "transaction reverted" {
+			t.Errorf("Expected Error='transaction reverted', got '%s'", resp.ErrorReason)
 		}
 	})
 }

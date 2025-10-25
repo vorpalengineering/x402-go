@@ -20,10 +20,11 @@ type SettleRequest struct {
 }
 
 type SettleResponse struct {
-	Success   bool   `json:"success"`
-	Error     string `json:"error,omitempty"`
-	TxHash    string `json:"txHash,omitempty"`
-	NetworkId string `json:"networkId,omitempty"`
+	Success     bool   `json:"success"`
+	ErrorReason string `json:"errorReason,omitempty"`
+	Transaction string `json:"transaction,omitempty"`
+	Network     string `json:"network,omitempty"`
+	Payer       string `json:"payer,omitempty"`
 }
 
 type SchemeNetwork struct {
@@ -62,4 +63,18 @@ type PaymentPayload struct {
 	Scheme      string         `json:"scheme"`
 	Network     string         `json:"network"`
 	Payload     map[string]any `json:"payload"`
+}
+
+type ExactSchemePayload struct {
+	Signature     string                   `json:"signature"`
+	Authorization ExactSchemeAuthorization `json:"authorization"`
+}
+
+type ExactSchemeAuthorization struct {
+	From        string `json:"from"`
+	To          string `json:"to"`
+	Value       string `json:"value"`
+	ValidAfter  int64  `json:"validAfter"`
+	ValidBefore int64  `json:"validBefore"`
+	Nonce       string `json:"nonce"`
 }

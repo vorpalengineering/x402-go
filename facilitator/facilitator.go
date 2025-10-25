@@ -47,9 +47,10 @@ func handleSettle(ctx *gin.Context) {
 	//TODO: settle request
 
 	res := types.SettleResponse{
-		Success:   true,
-		TxHash:    "0x123",
-		NetworkId: "41",
+		Success:     true,
+		Transaction: "0x123",
+		Network:     "41",
+		Payer:       "0xabc",
 	}
 
 	ctx.JSON(http.StatusOK, res)
