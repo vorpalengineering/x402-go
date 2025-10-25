@@ -14,6 +14,7 @@ type FacilitatorConfig struct {
 	Supported   []types.SchemeNetworkPair `yaml:"supported"`
 	Transaction TransactionConfig         `yaml:"transaction"`
 	Log         LogConfig                 `yaml:"log"`
+	PrivateKey  string                    `yaml:"-"`
 }
 
 type ServerConfig struct {
@@ -43,14 +44,29 @@ func LoadConfig(configPath string) (*FacilitatorConfig, error) {
 	}
 
 	// Parse YAML
-	var conf FacilitatorConfig
-	if err := yaml.Unmarshal(data, &conf); err != nil {
+	var facilitatorConfig FacilitatorConfig
+	if err := yaml.Unmarshal(data, &facilitatorConfig); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	// TODO: get secrets
+	// Load secrets from environment variables
+	if err := loadEnvVars(&facilitatorConfig); err != nil {
+		return nil, fmt.Errorf("failed to load env vars: %w", err)
+	}
 
 	// TODO: validate config
 
-	return &conf, nil
+	return &facilitatorConfig, nil
+}
+
+func loadEnvVars(cfg *FacilitatorConfig) error {
+	// Load from environment variable
+	// ex: export X402_FACILITATOR_PRIVATE_KEY=0x123...
+	privateKey := os.Getenv("X402_FACILITATOR_PRIVATE_KEY")
+	if privateKey == "" {
+		return fmt.Errorf("X402_FACILITATOR_PRIVATE_KEY environment variable required")
+	}
+	cfg.PrivateKey = privateKey
+
+	return nil
 }

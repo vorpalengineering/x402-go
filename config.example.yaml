@@ -32,3 +32,7 @@ transaction:
 # Logging
 log:
   level: "info"  # Options: debug, info, warn, error
+
+# IMPORTANT: Private keys are loaded from environment variables
+# Set X402_FACILITATOR_PRIVATE_KEY environment variable before running:
+# export X402_FACILITATOR_PRIVATE_KEY=0x1234567890abcdef...
