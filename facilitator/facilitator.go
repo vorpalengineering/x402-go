@@ -59,7 +59,7 @@ func handleSettle(ctx *gin.Context) {
 func handleSupported(ctx *gin.Context) {
 	// TODO: implement actual supported SchemeNetwork pairs
 	res := types.SupportedResponse{
-		Kinds: []types.SchemeNetwork{},
+		Kinds: []types.SchemeNetworkPair{},
 	}
 
 	ctx.JSON(http.StatusOK, res)

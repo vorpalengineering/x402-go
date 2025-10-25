@@ -27,13 +27,13 @@ type SettleResponse struct {
 	Payer       string `json:"payer,omitempty"`
 }
 
-type SchemeNetwork struct {
+type SchemeNetworkPair struct {
 	Scheme  string `json:"scheme"`
 	Network string `json:"network"`
 }
 
 type SupportedResponse struct {
-	Kinds []SchemeNetwork `json:"kinds"`
+	Kinds []SchemeNetworkPair `json:"kinds"`
 }
 
 // Payment types
