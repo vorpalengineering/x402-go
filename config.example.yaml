@@ -1,0 +1,34 @@
+# x402 Facilitator Configuration
+# Copy this file to config.yaml and customize for your environment
+
+# Server configuration
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+# Network RPC endpoints
+# Add or remove networks as needed
+networks:
+  base:
+    rpc_url: "https://mainnet.base.org"
+    chain_id: 8453
+  ethereum:
+    rpc_url: "https://eth.llamarpc.com"
+    chain_id: 1
+
+# Supported payment schemes
+# List all scheme-network combinations your facilitator supports
+supported:
+  - scheme: "exact"
+    network: "base"
+  - scheme: "exact"
+    network: "ethereum"
+
+# Transaction settings
+transaction:
+  timeout_seconds: 120
+  max_gas_price: "100000000000"  # 100 gwei in wei
+
+# Logging
+log:
+  level: "info"  # Options: debug, info, warn, error

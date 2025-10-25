@@ -7,7 +7,10 @@ import (
 	"github.com/vorpalengineering/x402-go/types"
 )
 
-func RegisterRoutes(router *gin.Engine) {
+var cfg *FacilitatorConfig
+
+func RegisterRoutes(router *gin.Engine, config *FacilitatorConfig) {
+	cfg = config
 	router.POST("/verify", handleVerify)
 	router.POST("/settle", handleSettle)
 	router.GET("/supported", handleSupported)
@@ -57,9 +60,8 @@ func handleSettle(ctx *gin.Context) {
 }
 
 func handleSupported(ctx *gin.Context) {
-	// TODO: implement actual supported SchemeNetwork pairs
 	res := types.SupportedResponse{
-		Kinds: []types.SchemeNetworkPair{},
+		Kinds: cfg.Supported,
 	}
 
 	ctx.JSON(http.StatusOK, res)

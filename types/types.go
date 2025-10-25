@@ -28,8 +28,8 @@ type SettleResponse struct {
 }
 
 type SchemeNetworkPair struct {
-	Scheme  string `json:"scheme"`
-	Network string `json:"network"`
+	Scheme  string `json:"scheme" yaml:"scheme"`
+	Network string `json:"network" yaml:"network"`
 }
 
 type SupportedResponse struct {
