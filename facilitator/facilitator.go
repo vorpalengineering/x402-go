@@ -10,9 +10,11 @@ import (
 func RegisterRoutes(router *gin.Engine) {
 	router.POST("/verify", handleVerify)
 	router.POST("/settle", handleSettle)
+	router.GET("/supported", handleSupported)
 }
 
 func handleVerify(ctx *gin.Context) {
+	// Decode request
 	var req types.VerifyRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -21,15 +23,19 @@ func handleVerify(ctx *gin.Context) {
 		return
 	}
 
+	// TODO: verify request
+
+	// Craft response
 	res := types.VerifyResponse{
-		Valid:   true,
-		Message: "Payment verification stubbed - not yet implemented",
+		IsValid: true,
+		// InvalidReason: "Payment verification stubbed - not yet implemented",
 	}
 
 	ctx.JSON(http.StatusOK, res)
 }
 
 func handleSettle(ctx *gin.Context) {
+	// Decode request
 	var req types.SettleRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -38,9 +44,21 @@ func handleSettle(ctx *gin.Context) {
 		return
 	}
 
+	//TODO: settle request
+
 	res := types.SettleResponse{
-		Status:  "pending",
-		Message: "Payment settlement stubbed - not yet implemented",
+		Success:   true,
+		TxHash:    "0x123",
+		NetworkId: "41",
+	}
+
+	ctx.JSON(http.StatusOK, res)
+}
+
+func handleSupported(ctx *gin.Context) {
+	// TODO: implement actual supported SchemeNetwork pairs
+	res := types.SupportedResponse{
+		Kinds: []types.SchemeNetwork{},
 	}
 
 	ctx.JSON(http.StatusOK, res)

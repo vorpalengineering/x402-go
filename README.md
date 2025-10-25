@@ -12,13 +12,44 @@ Client library for interacting with x402 facilitators.
 import "github.com/vorpalengineering/x402-go/client"
 
 // Create new x402 client
-c := client.New("http://localhost:8080")
+c := client.NewClient("http://localhost:8080")
+
+// Get supported schemes
+supported, err := c.Supported()
+if err != nil {
+    log.Fatal(err)
+}
 
 // Verify Payment
-resp, err := c.Verify(&types.VerifyRequest{...})
+verifyReq := &types.VerifyRequest{
+    X402Version: 1,
+    PaymentHeader: "base64EncodedPaymentHeader",
+    PaymentRequirements: types.PaymentRequirements{
+        Scheme: "exact",
+        Network: "base",
+        // ... other fields
+    },
+}
+verifyResp, err := c.Verify(verifyReq)
+if verifyResp.IsValid {
+    // Payment is valid
+}
 
 // Settle Payment
-res, err = c.Settle(&types.SettleRequest{...})
+settleReq := &types.SettleRequest{
+    X402Version: 1,
+    PaymentHeader: "base64EncodedPaymentHeader",
+    PaymentRequirements: types.PaymentRequirements{
+        Scheme: "exact",
+        Network: "base",
+        // ... other fields
+    },
+}
+settleResp, err := c.Settle(settleReq)
+if settleResp.Success {
+    // Payment is successful
+    fmt.Printf("Transaction hash: %s\n", settleResp.TxHash)
+}
 ```
 
 ### Facilitator (`/facilitator`)
@@ -26,36 +57,15 @@ res, err = c.Settle(&types.SettleRequest{...})
 Facilitator service implementation providing payment verification and settlement.
 
 Run the facilitator service:
-```
+```bash
 go run ./cmd/facilitator
 ```
 
 The service will start on port 8080 with the following endpoints:
-- POST /verify - Verify payment payloads
-- POST /settle - Settle payments on-chain
+- `GET /supported` - Get supported scheme-network combinations
+- `POST /verify` - Verify payment payloads
+- `POST /settle` - Settle payments on-chain
 
-### Types (`/types`)
+## x402 Protocol
 
-Shared types used by both client and facilitator packages.
-
-```go
-// Verify types
-type VerifyRequest struct {
-	PaymentPayload interface{} `json:"payment_payload"`
-	Requirements   interface{} `json:"requirements"`
-}
-type VerifyResponse struct {
-	Valid   bool   `json:"valid"`
-	Message string `json:"message,omitempty"`
-}
-
-// Settle types
-type SettleRequest struct {
-	PaymentPayload interface{} `json:"payment_payload"`
-}
-type SettleResponse struct {
-	TxHash  string `json:"tx_hash,omitempty"`
-	Status  string `json:"status"`
-	Message string `json:"message,omitempty"`
-}
-```
+This implementation follows the [x402 specification](https://github.com/coinbase/x402) for verifiable on-chain payments.
