@@ -144,8 +144,8 @@ func buildEIP712TypedData(auth *types.ExactSchemeAuthorization, requirements *ty
 		},
 		PrimaryType: "TransferWithAuthorization",
 		Domain: apitypes.TypedDataDomain{
-			Name:              "USD Coin", // This should match the token contract
-			Version:           "2",        // USDC version
+			Name:              "USDC", // This should match the token contract
+			Version:           "2",    // USDC version
 			ChainId:           (*math.HexOrDecimal256)(getChainID(requirements.Network)),
 			VerifyingContract: requirements.Asset,
 		},
