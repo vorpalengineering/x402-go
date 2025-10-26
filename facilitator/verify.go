@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/vorpalengineering/x402-go/types"
 )
@@ -260,17 +259,6 @@ func buildEIP712TypedData(auth *types.ExactSchemeAuthorization, requirements *ty
 	}
 }
 
-func getChainID(network string) *big.Int {
-	switch network {
-	case "base":
-		return big.NewInt(8453)
-	case "base-sepolia":
-		return big.NewInt(84532)
-	default:
-		return big.NewInt(1) // Default to mainnet
-	}
-}
-
 func verifyBalance(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
 	// Parse the payment amount
 	paymentAmount, ok := new(big.Int).SetString(auth.Value, 10)
@@ -283,7 +271,6 @@ func verifyBalance(auth *types.ExactSchemeAuthorization, requirements *types.Pay
 	if err != nil {
 		return false, fmt.Sprintf("failed to connect to network: %v", err)
 	}
-	defer client.Close()
 
 	// Parse the ERC-20 ABI
 	parsedABI, err := abi.JSON(strings.NewReader(erc20BalanceOfABI))
@@ -325,22 +312,6 @@ func verifyBalance(auth *types.ExactSchemeAuthorization, requirements *types.Pay
 	}
 
 	return true, ""
-}
-
-func getRPCClient(network string) (*ethclient.Client, error) {
-	// Get network config
-	networkCfg, err := cfg.GetNetworkConfig(network)
-	if err != nil {
-		return nil, err
-	}
-
-	// Connect to RPC endpoint
-	client, err := ethclient.Dial(networkCfg.RpcUrl)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to RPC: %w", err)
-	}
-
-	return client, nil
 }
 
 func verifyAmount(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
@@ -396,7 +367,6 @@ func simulateTransaction(auth *types.ExactSchemeAuthorization, requirements *typ
 	if err != nil {
 		return false, fmt.Sprintf("failed to connect to network: %v", err)
 	}
-	defer client.Close()
 
 	// Parse the EIP-3009 ABI
 	parsedABI, err := abi.JSON(strings.NewReader(eip3009TransferWithAuthABI))
@@ -457,38 +427,4 @@ func simulateTransaction(auth *types.ExactSchemeAuthorization, requirements *typ
 
 	// If we got here, the transaction simulation succeeded
 	return true, ""
-}
-
-func extractVRS(signatureHex string) (v uint8, r [32]byte, s [32]byte, err error) {
-	// Remove 0x prefix if present
-	if len(signatureHex) > 2 && signatureHex[:2] == "0x" {
-		signatureHex = signatureHex[2:]
-	}
-
-	// Decode hex signature
-	signature, err := hexutil.Decode("0x" + signatureHex)
-	if err != nil {
-		return 0, [32]byte{}, [32]byte{}, fmt.Errorf("invalid signature format: %w", err)
-	}
-
-	// Signature should be 65 bytes (r: 32, s: 32, v: 1)
-	if len(signature) != 65 {
-		return 0, [32]byte{}, [32]byte{}, fmt.Errorf("invalid signature length: expected 65, got %d", len(signature))
-	}
-
-	// Extract r (first 32 bytes)
-	copy(r[:], signature[0:32])
-
-	// Extract s (next 32 bytes)
-	copy(s[:], signature[32:64])
-
-	// Extract v (last byte)
-	v = signature[64]
-
-	// Ethereum uses v = 27 or 28, ensure it's in that range
-	if v < 27 {
-		v += 27
-	}
-
-	return v, r, s, nil
 }
