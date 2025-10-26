@@ -1,0 +1,54 @@
+# x402 Reverse Proxy Configuration
+# Copy this file to config.proxy.yaml and customize for your environment
+
+# Proxy server configuration
+server:
+  host: "0.0.0.0"
+  port: 8081
+
+# Backend service to proxy to
+backend:
+  url: "http://localhost:3000"
+
+# X402 payment configuration
+x402:
+  # Facilitator service URL
+  facilitator_url: "http://localhost:8080"
+
+  # Optional: custom payment header name (defaults to "X-Payment")
+  payment_header_name: "X-Payment"
+
+  # Default payment requirements for all protected routes
+  default_requirements:
+    scheme: "exact"
+    network: "base"
+    max_amount_required: "1000000"  # 1 USDC (6 decimals)
+    resource: "/api/*"
+    description: "API access payment"
+    mime_type: "application/json"
+    pay_to: "0x123..." # Your seller address here 
+    max_timeout_seconds: 120
+    asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"  # USDC on Base
+
+  # Paths that require payment (glob patterns supported)
+  protected_paths:
+    - "/api/*"
+    - "/v1/*"
+
+  # Optional: route-specific payment requirements
+  # These override default_requirements for specific routes
+  route_requirements:
+    "/api/premium":
+      scheme: "exact"
+      network: "base"
+      max_amount_required: "5000000"  # 5 USDC for premium endpoint
+      resource: "/api/premium"
+      description: "Premium API access"
+      mime_type: "application/json"
+      pay_to: "0x123..." # Your seller address here 
+      max_timeout_seconds: 120
+      asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+
+# Logging configuration
+log:
+  level: "info"  # Options: debug, info, warn, error
