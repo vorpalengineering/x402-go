@@ -26,12 +26,23 @@ func handleVerify(ctx *gin.Context) {
 		return
 	}
 
-	// TODO: verify request
+	// TODO: Check if scheme-network combination is supported
+	// if !cfg.IsSupported(req.PaymentRequirements.Scheme, req.PaymentRequirements.Network) {
+	// 	res := types.VerifyResponse{
+	// 		IsValid:       false,
+	// 		InvalidReason: fmt.Sprintf("unsupported scheme-network: %s-%s", req.PaymentRequirements.Scheme, req.PaymentRequirements.Network),
+	// 	}
+	// 	ctx.JSON(http.StatusOK, res)
+	// 	return
+	// }
+
+	// Verify request
+	isValid, invalidReason := VerifyPayment(&req)
 
 	// Craft response
 	res := types.VerifyResponse{
-		IsValid: true,
-		// InvalidReason: "Payment verification stubbed - not yet implemented",
+		IsValid:       isValid,
+		InvalidReason: invalidReason,
 	}
 
 	ctx.JSON(http.StatusOK, res)

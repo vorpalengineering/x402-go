@@ -59,6 +59,23 @@ func LoadConfig(configPath string) (*FacilitatorConfig, error) {
 	return &facilitatorConfig, nil
 }
 
+func (c *FacilitatorConfig) GetNetworkConfig(network string) (NetworkConfig, error) {
+	cfg, exists := c.Networks[network]
+	if !exists {
+		return NetworkConfig{}, fmt.Errorf("network not configured: %s", network)
+	}
+	return cfg, nil
+}
+
+func (c *FacilitatorConfig) IsSupported(scheme, network string) bool {
+	for _, s := range c.Supported {
+		if s.Scheme == scheme && s.Network == network {
+			return true
+		}
+	}
+	return false
+}
+
 func loadEnvVars(cfg *FacilitatorConfig) error {
 	// Load from environment variable
 	// ex: export X402_FACILITATOR_PRIVATE_KEY=0x123...

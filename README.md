@@ -56,9 +56,18 @@ if settleResp.Success {
 
 Facilitator service implementation providing payment verification and settlement.
 
+Make sure you have set your X402_FACILITATOR_PRIVATE_KEY env variable first.
+
+```bash
+export X402_FACILITATOR_PRIVATE_KEY=0x123abc
+```
+
 Run the facilitator service:
 ```bash
 go run ./cmd/facilitator
+
+# Or with a custom config path
+go run ./cmd/faclitator --config=path/to/config.yaml
 ```
 
 The service will start on port 8080 with the following endpoints:
