@@ -73,9 +73,12 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// Check if the current path requires payment
 		if !m.isProtectedPath(ctx.Request.URL.Path) {
+			log.Println("Not a protected path. Ignoring...")
 			ctx.Next()
 			return
 		}
+
+		log.Println("Handling x402 request...")
 
 		// Extract payment header
 		headerName := m.config.GetPaymentHeaderName()
@@ -83,6 +86,7 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 
 		// If no payment header is present, return 402 Payment Required
 		if paymentHeader == "" {
+			log.Println("returned PaymentRequired response...")
 			m.sendPaymentRequired(ctx, ctx.Request.URL.Path)
 			return
 		}
@@ -96,6 +100,8 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 			PaymentHeader:       paymentHeader,
 			PaymentRequirements: requirements,
 		}
+
+		log.Println("Verifying payment...")
 
 		verifyResp, err := m.facilitator.Verify(verifyReq)
 		if err != nil {
@@ -120,6 +126,8 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 			return
 		}
 
+		log.Println("Payment verified...")
+
 		// Payment is valid, store payment info in context for downstream handlers
 		ctx.Set("x402_payment_verified", true)
 		ctx.Set("x402_payment_header", paymentHeader)
@@ -134,6 +142,8 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 
 		// STEP 3: Settle payment if handler succeeded (2xx status)
 		if buffered.Status() >= 200 && buffered.Status() < 300 {
+			log.Println("API Request complete. Settling payment...")
+
 			settleReq := &types.SettleRequest{
 				X402Version:         1,
 				PaymentHeader:       paymentHeader,
@@ -158,6 +168,8 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 				ctx.Abort()
 				return
 			}
+
+			log.Println("Payment Settled")
 
 			// Store settlement info in context
 			ctx.Set("x402_settlement_tx", settleResp.Transaction)
