@@ -2,8 +2,6 @@ package facilitator
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -13,37 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/vorpalengineering/x402-go/types"
 )
-
-const erc20BalanceOfABI = `[{
-	"constant": true,
-	"inputs": [{"name": "account", "type": "address"}],
-	"name": "balanceOf",
-	"outputs": [{"name": "", "type": "uint256"}],
-	"type": "function"
-}]`
-
-const eip3009TransferWithAuthABI = `[{
-	"inputs": [
-		{"name": "from", "type": "address"},
-		{"name": "to", "type": "address"},
-		{"name": "value", "type": "uint256"},
-		{"name": "validAfter", "type": "uint256"},
-		{"name": "validBefore", "type": "uint256"},
-		{"name": "nonce", "type": "bytes32"},
-		{"name": "v", "type": "uint8"},
-		{"name": "r", "type": "bytes32"},
-		{"name": "s", "type": "bytes32"}
-	],
-	"name": "transferWithAuthorization",
-	"outputs": [],
-	"stateMutability": "nonpayable",
-	"type": "function"
-}]`
 
 func VerifyPayment(req *types.VerifyRequest) (bool, string) {
 	// Decode the payment header from base64
@@ -59,22 +29,6 @@ func VerifyPayment(req *types.VerifyRequest) (bool, string) {
 	default:
 		return false, fmt.Sprintf("unsupported scheme: %s", paymentPayload.Scheme)
 	}
-}
-
-func decodePaymentHeader(header string) (*types.PaymentPayload, error) {
-	// Decode base64
-	decoded, err := base64.StdEncoding.DecodeString(header)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base64: %w", err)
-	}
-
-	// Parse JSON
-	var payload types.PaymentPayload
-	if err := json.Unmarshal(decoded, &payload); err != nil {
-		return nil, fmt.Errorf("invalid JSON: %w", err)
-	}
-
-	return &payload, nil
 }
 
 func verifyExactScheme(payload *types.PaymentPayload, requirements *types.PaymentRequirements) (bool, string) {
@@ -121,37 +75,6 @@ func verifyExactScheme(payload *types.PaymentPayload, requirements *types.Paymen
 	}
 
 	return true, ""
-}
-
-func extractExactAuthorization(payload *types.PaymentPayload) (*types.ExactSchemeAuthorization, error) {
-	// Get signature
-	_, ok := payload.Payload["signature"].(string)
-	if !ok {
-		return nil, fmt.Errorf("missing or invalid signature")
-	}
-
-	// Get authorization object
-	authData, ok := payload.Payload["authorization"]
-	if !ok {
-		return nil, fmt.Errorf("missing authorization")
-	}
-
-	// Convert to JSON and back to struct (handles type conversions)
-	authJSON, err := json.Marshal(authData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal authorization: %w", err)
-	}
-
-	var auth types.ExactSchemeAuthorization
-	if err := json.Unmarshal(authJSON, &auth); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal authorization: %w", err)
-	}
-
-	// Store signature in a place we can access it
-	// (We'll need to add a Signature field to ExactSchemeAuthorization)
-	// For now, we'll handle it separately
-
-	return &auth, nil
 }
 
 func verifySignature(auth *types.ExactSchemeAuthorization, payload *types.PaymentPayload, requirements *types.PaymentRequirements) (bool, string) {
@@ -217,46 +140,6 @@ func verifySignature(auth *types.ExactSchemeAuthorization, payload *types.Paymen
 	}
 
 	return true, ""
-}
-
-func buildEIP712TypedData(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements) apitypes.TypedData {
-	// Parse value as big.Int
-	value := new(big.Int)
-	value.SetString(auth.Value, 10)
-
-	return apitypes.TypedData{
-		Types: apitypes.Types{
-			"EIP712Domain": []apitypes.Type{
-				{Name: "name", Type: "string"},
-				{Name: "version", Type: "string"},
-				{Name: "chainId", Type: "uint256"},
-				{Name: "verifyingContract", Type: "address"},
-			},
-			"TransferWithAuthorization": []apitypes.Type{
-				{Name: "from", Type: "address"},
-				{Name: "to", Type: "address"},
-				{Name: "value", Type: "uint256"},
-				{Name: "validAfter", Type: "uint256"},
-				{Name: "validBefore", Type: "uint256"},
-				{Name: "nonce", Type: "bytes32"},
-			},
-		},
-		PrimaryType: "TransferWithAuthorization",
-		Domain: apitypes.TypedDataDomain{
-			Name:              "USD Coin", // This should match the token contract
-			Version:           "2",        // USDC version
-			ChainId:           (*math.HexOrDecimal256)(getChainID(requirements.Network)),
-			VerifyingContract: requirements.Asset,
-		},
-		Message: apitypes.TypedDataMessage{
-			"from":        auth.From,
-			"to":          auth.To,
-			"value":       value.String(),
-			"validAfter":  fmt.Sprintf("%d", auth.ValidAfter),
-			"validBefore": fmt.Sprintf("%d", auth.ValidBefore),
-			"nonce":       auth.Nonce,
-		},
-	}
 }
 
 func verifyBalance(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
