@@ -28,6 +28,24 @@ const erc20BalanceOfABI = `[{
 	"type": "function"
 }]`
 
+const eip3009TransferWithAuthABI = `[{
+	"inputs": [
+		{"name": "from", "type": "address"},
+		{"name": "to", "type": "address"},
+		{"name": "value", "type": "uint256"},
+		{"name": "validAfter", "type": "uint256"},
+		{"name": "validBefore", "type": "uint256"},
+		{"name": "nonce", "type": "bytes32"},
+		{"name": "v", "type": "uint8"},
+		{"name": "r", "type": "bytes32"},
+		{"name": "s", "type": "bytes32"}
+	],
+	"name": "transferWithAuthorization",
+	"outputs": [],
+	"stateMutability": "nonpayable",
+	"type": "function"
+}]`
+
 func VerifyPayment(req *types.VerifyRequest) (bool, string) {
 	// Decode the payment header from base64
 	paymentPayload, err := decodePaymentHeader(req.PaymentHeader)
@@ -61,6 +79,12 @@ func decodePaymentHeader(header string) (*types.PaymentPayload, error) {
 }
 
 func verifyExactScheme(payload *types.PaymentPayload, requirements *types.PaymentRequirements) (bool, string) {
+	// Extract signature from payload (we need it for multiple steps)
+	signatureHex, ok := payload.Payload["signature"].(string)
+	if !ok || signatureHex == "" {
+		return false, "missing signature"
+	}
+
 	// Extract authorization from payload
 	auth, err := extractExactAuthorization(payload)
 	if err != nil {
@@ -93,7 +117,7 @@ func verifyExactScheme(payload *types.PaymentPayload, requirements *types.Paymen
 	}
 
 	// Step 6: Transaction Simulation
-	if valid, reason := simulateTransaction(auth, requirements); !valid {
+	if valid, reason := simulateTransaction(auth, requirements, signatureHex); !valid {
 		return false, reason
 	}
 
@@ -366,14 +390,105 @@ func verifyParameters(auth *types.ExactSchemeAuthorization, requirements *types.
 	return true, ""
 }
 
-func simulateTransaction(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
-	// TODO: Simulate the transaction on the blockchain
-	// This requires:
-	// 1. Connect to RPC endpoint
-	// 2. Build the transferWithAuthorization call data
-	// 3. Use eth_call to simulate
-	// 4. Check for revert
+func simulateTransaction(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements, signatureHex string) (bool, string) {
+	// Get RPC client
+	client, err := getRPCClient(requirements.Network)
+	if err != nil {
+		return false, fmt.Sprintf("failed to connect to network: %v", err)
+	}
+	defer client.Close()
 
-	// For now, stub
+	// Parse the EIP-3009 ABI
+	parsedABI, err := abi.JSON(strings.NewReader(eip3009TransferWithAuthABI))
+	if err != nil {
+		return false, fmt.Sprintf("failed to parse ABI: %v", err)
+	}
+
+	// Extract v, r, s from signature
+	v, r, s, err := extractVRS(signatureHex)
+	if err != nil {
+		return false, fmt.Sprintf("failed to extract signature components: %v", err)
+	}
+
+	// Parse addresses and value
+	fromAddr := common.HexToAddress(auth.From)
+	toAddr := common.HexToAddress(auth.To)
+	value := new(big.Int)
+	value.SetString(auth.Value, 10)
+
+	// Parse nonce (should be bytes32)
+	var nonce [32]byte
+	nonceBytes, err := hexutil.Decode(auth.Nonce)
+	if err != nil {
+		return false, fmt.Sprintf("invalid nonce format: %v", err)
+	}
+	copy(nonce[:], nonceBytes)
+
+	// Encode the transferWithAuthorization call
+	callData, err := parsedABI.Pack(
+		"transferWithAuthorization",
+		fromAddr,
+		toAddr,
+		value,
+		big.NewInt(auth.ValidAfter),
+		big.NewInt(auth.ValidBefore),
+		nonce,
+		v,
+		r,
+		s,
+	)
+	if err != nil {
+		return false, fmt.Sprintf("failed to encode call: %v", err)
+	}
+
+	// Create the call message
+	tokenAddress := common.HexToAddress(requirements.Asset)
+	msg := ethereum.CallMsg{
+		To:   &tokenAddress,
+		Data: callData,
+	}
+
+	// Simulate the transaction
+	ctx := context.Background()
+	_, err = client.CallContract(ctx, msg, nil) // nil = latest block
+	if err != nil {
+		return false, fmt.Sprintf("transaction would fail: %v", err)
+	}
+
+	// If we got here, the transaction simulation succeeded
 	return true, ""
+}
+
+func extractVRS(signatureHex string) (v uint8, r [32]byte, s [32]byte, err error) {
+	// Remove 0x prefix if present
+	if len(signatureHex) > 2 && signatureHex[:2] == "0x" {
+		signatureHex = signatureHex[2:]
+	}
+
+	// Decode hex signature
+	signature, err := hexutil.Decode("0x" + signatureHex)
+	if err != nil {
+		return 0, [32]byte{}, [32]byte{}, fmt.Errorf("invalid signature format: %w", err)
+	}
+
+	// Signature should be 65 bytes (r: 32, s: 32, v: 1)
+	if len(signature) != 65 {
+		return 0, [32]byte{}, [32]byte{}, fmt.Errorf("invalid signature length: expected 65, got %d", len(signature))
+	}
+
+	// Extract r (first 32 bytes)
+	copy(r[:], signature[0:32])
+
+	// Extract s (next 32 bytes)
+	copy(s[:], signature[32:64])
+
+	// Extract v (last byte)
+	v = signature[64]
+
+	// Ethereum uses v = 27 or 28, ensure it's in that range
+	if v < 27 {
+		v += 27
+	}
+
+	return v, r, s, nil
 }
