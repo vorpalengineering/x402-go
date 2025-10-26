@@ -59,16 +59,16 @@ func LoadConfig(configPath string) (*FacilitatorConfig, error) {
 	return &facilitatorConfig, nil
 }
 
-func (c *FacilitatorConfig) GetNetworkConfig(network string) (NetworkConfig, error) {
-	cfg, exists := c.Networks[network]
+func (config *FacilitatorConfig) GetNetworkConfig(network string) (NetworkConfig, error) {
+	networkConfig, exists := config.Networks[network]
 	if !exists {
 		return NetworkConfig{}, fmt.Errorf("network not configured: %s", network)
 	}
-	return cfg, nil
+	return networkConfig, nil
 }
 
-func (c *FacilitatorConfig) IsSupported(scheme, network string) bool {
-	for _, s := range c.Supported {
+func (config *FacilitatorConfig) IsSupported(scheme, network string) bool {
+	for _, s := range config.Supported {
 		if s.Scheme == scheme && s.Network == network {
 			return true
 		}
@@ -76,14 +76,14 @@ func (c *FacilitatorConfig) IsSupported(scheme, network string) bool {
 	return false
 }
 
-func loadEnvVars(cfg *FacilitatorConfig) error {
+func loadEnvVars(config *FacilitatorConfig) error {
 	// Load from environment variable
 	// ex: export X402_FACILITATOR_PRIVATE_KEY=0x123...
 	privateKey := os.Getenv("X402_FACILITATOR_PRIVATE_KEY")
 	if privateKey == "" {
 		return fmt.Errorf("X402_FACILITATOR_PRIVATE_KEY environment variable required")
 	}
-	cfg.PrivateKey = privateKey
+	config.PrivateKey = privateKey
 
 	return nil
 }

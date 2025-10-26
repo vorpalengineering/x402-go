@@ -65,6 +65,8 @@ func settleExactScheme(payload *types.PaymentPayload, requirements *types.Paymen
 		}
 	}
 
+	// TODO: verify again before settling?
+
 	// Build and send the transaction
 	txHash, err := sendTransferWithAuthorization(client, auth, requirements, signatureHex)
 	if err != nil {
