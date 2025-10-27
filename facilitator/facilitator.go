@@ -133,16 +133,10 @@ func handleSettle(ctx *gin.Context) {
 		return
 	}
 
-	//TODO: settle request
+	// Settle request
+	resp := SettlePayment(&req)
 
-	res := types.SettleResponse{
-		Success:     true,
-		Transaction: "0x123",
-		Network:     "41",
-		Payer:       "0xabc",
-	}
-
-	ctx.JSON(http.StatusOK, res)
+	ctx.JSON(http.StatusOK, resp)
 }
 
 func handleSupported(ctx *gin.Context) {
