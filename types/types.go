@@ -45,17 +45,17 @@ type PaymentRequiredResponse struct {
 }
 
 type PaymentRequirements struct {
-	Scheme            string         `json:"scheme"`
-	Network           string         `json:"network"`
-	MaxAmountRequired string         `json:"maxAmountRequired"`
-	Resource          string         `json:"resource"`
-	Description       string         `json:"description"`
-	MimeType          string         `json:"mimeType"`
-	OutputSchema      map[string]any `json:"outputSchema,omitempty"`
-	PayTo             string         `json:"payTo"`
-	MaxTimeoutSeconds int            `json:"maxTimeoutSeconds"`
-	Asset             string         `json:"asset"`
-	Extra             map[string]any `json:"extra,omitempty"`
+	Scheme            string         `json:"scheme" yaml:"scheme"`
+	Network           string         `json:"network" yaml:"network"`
+	MaxAmountRequired string         `json:"maxAmountRequired" yaml:"max_amount_required"`
+	Resource          string         `json:"resource" yaml:"resource"`
+	Description       string         `json:"description" yaml:"description"`
+	MimeType          string         `json:"mimeType" yaml:"mime_type"`
+	OutputSchema      map[string]any `json:"outputSchema,omitempty" yaml:"output_scheme,omitempty"`
+	PayTo             string         `json:"payTo" yaml:"pay_to"`
+	MaxTimeoutSeconds int            `json:"maxTimeoutSeconds" yaml:"max_timeout_seconds"`
+	Asset             string         `json:"asset" yaml:"asset"`
+	Extra             map[string]any `json:"extra,omitempty" yaml:"extra,omitempty"`
 }
 
 type PaymentPayload struct {
