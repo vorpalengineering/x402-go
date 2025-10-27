@@ -225,27 +225,6 @@ payer, _ := c.Get("x402_settlement_payer")  // string
 
 **Note:** Settlement context values are set AFTER the handler completes but BEFORE the response is sent to the client.
 
-## Example: Mixed Protected/Unprotected Routes
-
-```go
-router := gin.Default()
-
-// Create middleware
-x402 := middleware.NewX402Middleware(config)
-
-// Public routes (no payment required)
-router.GET("/health", healthHandler)
-router.GET("/public/info", publicInfoHandler)
-
-// Protected routes
-protected := router.Group("/api")
-protected.Use(x402.Handler())
-{
-    protected.GET("/data", getDataHandler)
-    protected.POST("/submit", submitHandler)
-}
-```
-
 ## Error Handling
 
 The middleware handles errors automatically:
@@ -258,45 +237,6 @@ The middleware handles errors automatically:
 - **Settlement success** → Response sent to client
 
 **Critical:** If settlement fails, the buffered response from the handler is NOT sent to the client, ensuring no access is granted without payment.
-
-## Integration with Facilitator
-
-The middleware uses the x402 client library to communicate with the facilitator:
-
-### Verification (Before Handler)
-
-```go
-facilitator := client.NewClient(cfg.FacilitatorURL)
-verifyResp, err := facilitator.Verify(&types.VerifyRequest{
-    X402Version:         1,
-    PaymentHeader:       paymentHeader,
-    PaymentRequirements: requirements,
-})
-```
-
-### Settlement (After Successful Handler)
-
-```go
-settleResp, err := facilitator.Settle(&types.SettleRequest{
-    X402Version:         1,
-    PaymentHeader:       paymentHeader,
-    PaymentRequirements: requirements,
-})
-
-// settleResp contains:
-// - Transaction: on-chain transaction hash
-// - Network: network where payment was settled
-// - Payer: address that paid
-```
-
-## Best Practices
-
-1. **Use environment variables** for sensitive config like payment addresses
-2. **Validate configuration** before starting the server
-3. **Set appropriate timeouts** in payment requirements
-4. **Monitor facilitator availability** for production systems
-5. **Log payment verification failures** for debugging
-6. **Use route-specific requirements** for tiered pricing
 
 ## See Also
 

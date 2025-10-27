@@ -68,7 +68,7 @@ Run the facilitator service:
 cp config.facilitator.example.yaml config.facilitator.yaml
 # Edit config.facilitator.yaml with your settings
 
-# Run with default config
+# Run with default config path
 go run ./cmd/facilitator
 
 # Or with a custom config path

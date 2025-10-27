@@ -1,2 +1,2 @@
 config.facilitator.yaml
-config.proxy.yaml
+*.config.facilitator.yaml
