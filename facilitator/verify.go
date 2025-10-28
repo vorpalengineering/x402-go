@@ -13,11 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/vorpalengineering/x402-go/types"
+	"github.com/vorpalengineering/x402-go/utils"
 )
 
 func VerifyPayment(req *types.VerifyRequest) (bool, string) {
 	// Decode the payment header from base64
-	paymentPayload, err := decodePaymentHeader(req.PaymentHeader)
+	paymentPayload, err := utils.DecodePaymentHeader(req.PaymentHeader)
 	if err != nil {
 		return false, fmt.Sprintf("failed to decode payment header: %v", err)
 	}
@@ -39,7 +40,7 @@ func verifyExactScheme(payload *types.PaymentPayload, requirements *types.Paymen
 	}
 
 	// Extract authorization from payload
-	auth, err := extractExactAuthorization(payload)
+	auth, err := utils.ExtractExactAuthorization(payload)
 	if err != nil {
 		return false, fmt.Sprintf("invalid authorization: %v", err)
 	}
@@ -101,7 +102,7 @@ func verifySignature(auth *types.ExactSchemeAuthorization, payload *types.Paymen
 	}
 
 	// Step 2: Build EIP-712 typed data
-	typedData := buildEIP712TypedData(auth, requirements)
+	typedData := utils.BuildEIP712TypedData(auth, requirements)
 
 	// Step 3: Hash the typed data according to EIP-712
 	domainSeparator, err := typedData.HashStruct("EIP712Domain", typedData.Domain.Map())
@@ -156,7 +157,7 @@ func verifyBalance(auth *types.ExactSchemeAuthorization, requirements *types.Pay
 	}
 
 	// Parse the ERC-20 ABI
-	parsedABI, err := abi.JSON(strings.NewReader(erc20BalanceOfABI))
+	parsedABI, err := abi.JSON(strings.NewReader(utils.ERC20BalanceOfABI))
 	if err != nil {
 		return false, fmt.Sprintf("failed to parse ABI: %v", err)
 	}
@@ -252,13 +253,13 @@ func simulateTransaction(auth *types.ExactSchemeAuthorization, requirements *typ
 	}
 
 	// Parse the EIP-3009 ABI
-	parsedABI, err := abi.JSON(strings.NewReader(eip3009TransferWithAuthABI))
+	parsedABI, err := abi.JSON(strings.NewReader(utils.EIP3009TransferWithAuthABI))
 	if err != nil {
 		return false, fmt.Sprintf("failed to parse ABI: %v", err)
 	}
 
 	// Extract v, r, s from signature
-	v, r, s, err := extractVRS(signatureHex)
+	v, r, s, err := utils.ExtractVRS(signatureHex)
 	if err != nil {
 		return false, fmt.Sprintf("failed to extract signature components: %v", err)
 	}

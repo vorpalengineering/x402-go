@@ -13,11 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/vorpalengineering/x402-go/types"
+	"github.com/vorpalengineering/x402-go/utils"
 )
 
 func SettlePayment(req *types.SettleRequest) *types.SettleResponse {
 	// Decode the payment header from base64
-	paymentPayload, err := decodePaymentHeader(req.PaymentHeader)
+	paymentPayload, err := utils.DecodePaymentHeader(req.PaymentHeader)
 	if err != nil {
 		return &types.SettleResponse{
 			Success:     false,
@@ -48,7 +49,7 @@ func settleExactScheme(payload *types.PaymentPayload, requirements *types.Paymen
 	}
 
 	// Extract authorization from payload
-	auth, err := extractExactAuthorization(payload)
+	auth, err := utils.ExtractExactAuthorization(payload)
 	if err != nil {
 		return &types.SettleResponse{
 			Success:     false,
@@ -78,7 +79,7 @@ func settleExactScheme(payload *types.PaymentPayload, requirements *types.Paymen
 	return &types.SettleResponse{
 		Success:     true,
 		Transaction: txHash,
-		Network:     fmt.Sprintf("%d", getChainID(requirements.Network)),
+		Network:     fmt.Sprintf("%d", utils.GetChainID(requirements.Network)),
 		Payer:       auth.From,
 	}
 }
@@ -90,13 +91,13 @@ func sendTransferWithAuthorization(
 	signatureHex string,
 ) (string, error) {
 	// Parse the EIP-3009 ABI
-	parsedABI, err := abi.JSON(strings.NewReader(eip3009TransferWithAuthABI))
+	parsedABI, err := abi.JSON(strings.NewReader(utils.EIP3009TransferWithAuthABI))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse ABI: %w", err)
 	}
 
 	// Extract v, r, s from signature
-	v, r, s, err := extractVRS(signatureHex)
+	v, r, s, err := utils.ExtractVRS(signatureHex)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract signature: %v", err)
 	}
@@ -176,7 +177,7 @@ func sendTransferWithAuthorization(
 	)
 
 	// Get chain ID
-	chainID := getChainID(requirements.Network)
+	chainID := utils.GetChainID(requirements.Network)
 
 	// Sign transaction
 	signedTx, err := ethtypes.SignTx(tx, ethtypes.NewEIP155Signer(chainID), privateKey)

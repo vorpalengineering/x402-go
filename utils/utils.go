@@ -1,4 +1,4 @@
-package facilitator
+package utils
 
 import (
 	"encoding/base64"
@@ -12,7 +12,7 @@ import (
 	"github.com/vorpalengineering/x402-go/types"
 )
 
-const erc20BalanceOfABI = `[{
+const ERC20BalanceOfABI = `[{
 	"constant": true,
 	"inputs": [{"name": "account", "type": "address"}],
 	"name": "balanceOf",
@@ -20,7 +20,7 @@ const erc20BalanceOfABI = `[{
 	"type": "function"
 }]`
 
-const eip3009TransferWithAuthABI = `[{
+const EIP3009TransferWithAuthABI = `[{
 	"inputs": [
 		{"name": "from", "type": "address"},
 		{"name": "to", "type": "address"},
@@ -38,7 +38,7 @@ const eip3009TransferWithAuthABI = `[{
 	"type": "function"
 }]`
 
-func getChainID(network string) *big.Int {
+func GetChainID(network string) *big.Int {
 	switch network {
 	case "base":
 		return big.NewInt(8453)
@@ -49,7 +49,7 @@ func getChainID(network string) *big.Int {
 	}
 }
 
-func decodePaymentHeader(header string) (*types.PaymentPayload, error) {
+func DecodePaymentHeader(header string) (*types.PaymentPayload, error) {
 	// Decode base64
 	decoded, err := base64.StdEncoding.DecodeString(header)
 	if err != nil {
@@ -65,7 +65,7 @@ func decodePaymentHeader(header string) (*types.PaymentPayload, error) {
 	return &payload, nil
 }
 
-func extractExactAuthorization(payload *types.PaymentPayload) (*types.ExactSchemeAuthorization, error) {
+func ExtractExactAuthorization(payload *types.PaymentPayload) (*types.ExactSchemeAuthorization, error) {
 	// Get authorization object
 	authData, ok := payload.Payload["authorization"]
 	if !ok {
@@ -86,7 +86,7 @@ func extractExactAuthorization(payload *types.PaymentPayload) (*types.ExactSchem
 	return &auth, nil
 }
 
-func extractVRS(signatureHex string) (v uint8, r [32]byte, s [32]byte, err error) {
+func ExtractVRS(signatureHex string) (v uint8, r [32]byte, s [32]byte, err error) {
 	// Remove 0x prefix if present
 	if len(signatureHex) > 2 && signatureHex[:2] == "0x" {
 		signatureHex = signatureHex[2:]
@@ -120,7 +120,8 @@ func extractVRS(signatureHex string) (v uint8, r [32]byte, s [32]byte, err error
 	return v, r, s, nil
 }
 
-func buildEIP712TypedData(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements) apitypes.TypedData {
+// TODO: add params for other tokens
+func BuildEIP712TypedData(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements) apitypes.TypedData {
 	// Parse value as big.Int
 	value := new(big.Int)
 	value.SetString(auth.Value, 10)
@@ -146,7 +147,7 @@ func buildEIP712TypedData(auth *types.ExactSchemeAuthorization, requirements *ty
 		Domain: apitypes.TypedDataDomain{
 			Name:              "USDC", // This should match the token contract
 			Version:           "2",    // USDC version
-			ChainId:           (*math.HexOrDecimal256)(getChainID(requirements.Network)),
+			ChainId:           (*math.HexOrDecimal256)(GetChainID(requirements.Network)),
 			VerifyingContract: requirements.Asset,
 		},
 		Message: apitypes.TypedDataMessage{
