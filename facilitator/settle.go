@@ -86,7 +86,7 @@ func settleExactScheme(payload *types.PaymentPayload, requirements *types.Paymen
 
 func sendTransferWithAuthorization(
 	client *ethclient.Client,
-	auth *types.ExactSchemeAuthorization,
+	auth *types.ExactEVMSchemeAuthorization,
 	requirements *types.PaymentRequirements,
 	signatureHex string,
 ) (string, error) {

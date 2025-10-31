@@ -65,7 +65,7 @@ func DecodePaymentHeader(header string) (*types.PaymentPayload, error) {
 	return &payload, nil
 }
 
-func ExtractExactAuthorization(payload *types.PaymentPayload) (*types.ExactSchemeAuthorization, error) {
+func ExtractExactAuthorization(payload *types.PaymentPayload) (*types.ExactEVMSchemeAuthorization, error) {
 	// Get authorization object
 	authData, ok := payload.Payload["authorization"]
 	if !ok {
@@ -78,7 +78,7 @@ func ExtractExactAuthorization(payload *types.PaymentPayload) (*types.ExactSchem
 		return nil, fmt.Errorf("failed to marshal authorization: %w", err)
 	}
 
-	var auth types.ExactSchemeAuthorization
+	var auth types.ExactEVMSchemeAuthorization
 	if err := json.Unmarshal(authJSON, &auth); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal authorization: %w", err)
 	}
@@ -121,7 +121,7 @@ func ExtractVRS(signatureHex string) (v uint8, r [32]byte, s [32]byte, err error
 }
 
 // TODO: add params for other tokens
-func BuildEIP712TypedData(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements) apitypes.TypedData {
+func BuildEIP712TypedData(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) apitypes.TypedData {
 	// Parse value as big.Int
 	value := new(big.Int)
 	value.SetString(auth.Value, 10)

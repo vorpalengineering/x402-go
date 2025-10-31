@@ -65,12 +65,12 @@ type PaymentPayload struct {
 	Payload     map[string]any `json:"payload"`
 }
 
-type ExactSchemePayload struct {
-	Signature     string                   `json:"signature"`
-	Authorization ExactSchemeAuthorization `json:"authorization"`
+type ExactEVMSchemePayload struct {
+	Signature     string                      `json:"signature"`
+	Authorization ExactEVMSchemeAuthorization `json:"authorization"`
 }
 
-type ExactSchemeAuthorization struct {
+type ExactEVMSchemeAuthorization struct {
 	From        string `json:"from"`
 	To          string `json:"to"`
 	Value       string `json:"value"`

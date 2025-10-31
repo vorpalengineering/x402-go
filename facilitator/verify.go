@@ -78,7 +78,7 @@ func verifyExactScheme(payload *types.PaymentPayload, requirements *types.Paymen
 	return true, ""
 }
 
-func verifySignature(auth *types.ExactSchemeAuthorization, payload *types.PaymentPayload, requirements *types.PaymentRequirements) (bool, string) {
+func verifySignature(auth *types.ExactEVMSchemeAuthorization, payload *types.PaymentPayload, requirements *types.PaymentRequirements) (bool, string) {
 	// Step 1: Extract signature from payload
 	signatureHex, ok := payload.Payload["signature"].(string)
 	if !ok || signatureHex == "" {
@@ -143,7 +143,7 @@ func verifySignature(auth *types.ExactSchemeAuthorization, payload *types.Paymen
 	return true, ""
 }
 
-func verifyBalance(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
+func verifyBalance(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
 	// Parse the payment amount
 	paymentAmount, ok := new(big.Int).SetString(auth.Value, 10)
 	if !ok {
@@ -198,7 +198,7 @@ func verifyBalance(auth *types.ExactSchemeAuthorization, requirements *types.Pay
 	return true, ""
 }
 
-func verifyAmount(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
+func verifyAmount(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
 	// Parse amounts as big.Int for safe comparison
 	paymentAmount, ok := new(big.Int).SetString(auth.Value, 10)
 	if !ok {
@@ -218,7 +218,7 @@ func verifyAmount(auth *types.ExactSchemeAuthorization, requirements *types.Paym
 	return true, ""
 }
 
-func verifyTimeWindow(auth *types.ExactSchemeAuthorization) (bool, string) {
+func verifyTimeWindow(auth *types.ExactEVMSchemeAuthorization) (bool, string) {
 	now := time.Now().Unix()
 
 	// Check validAfter
@@ -234,7 +234,7 @@ func verifyTimeWindow(auth *types.ExactSchemeAuthorization) (bool, string) {
 	return true, ""
 }
 
-func verifyParameters(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
+func verifyParameters(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
 	// Verify recipient address matches
 	if auth.To != requirements.PayTo {
 		return false, fmt.Sprintf("recipient mismatch: got %s, expected %s", auth.To, requirements.PayTo)
@@ -245,7 +245,7 @@ func verifyParameters(auth *types.ExactSchemeAuthorization, requirements *types.
 	return true, ""
 }
 
-func simulateTransaction(auth *types.ExactSchemeAuthorization, requirements *types.PaymentRequirements, signatureHex string) (bool, string) {
+func simulateTransaction(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements, signatureHex string) (bool, string) {
 	// Get RPC client
 	client, err := getRPCClient(requirements.Network)
 	if err != nil {
