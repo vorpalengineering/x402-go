@@ -16,7 +16,7 @@ import (
 	"github.com/vorpalengineering/x402-go/utils"
 )
 
-func SettlePayment(req *types.SettleRequest) *types.SettleResponse {
+func (f *Facilitator) settlePayment(req *types.SettleRequest) *types.SettleResponse {
 	// Decode the payment header from base64
 	paymentPayload, err := utils.DecodePaymentHeader(req.PaymentHeader)
 	if err != nil {
@@ -29,7 +29,7 @@ func SettlePayment(req *types.SettleRequest) *types.SettleResponse {
 	// Settle based on scheme
 	switch paymentPayload.Scheme {
 	case "exact":
-		return settleExactScheme(paymentPayload, &req.PaymentRequirements)
+		return f.settleExactScheme(paymentPayload, &req.PaymentRequirements)
 	default:
 		return &types.SettleResponse{
 			Success:     false,
@@ -38,7 +38,7 @@ func SettlePayment(req *types.SettleRequest) *types.SettleResponse {
 	}
 }
 
-func settleExactScheme(payload *types.PaymentPayload, requirements *types.PaymentRequirements) *types.SettleResponse {
+func (f *Facilitator) settleExactScheme(payload *types.PaymentPayload, requirements *types.PaymentRequirements) *types.SettleResponse {
 	// Extract signature from payload
 	signatureHex, ok := payload.Payload["signature"].(string)
 	if !ok || signatureHex == "" {
@@ -58,7 +58,7 @@ func settleExactScheme(payload *types.PaymentPayload, requirements *types.Paymen
 	}
 
 	// Get RPC client
-	client, err := getRPCClient(requirements.Network)
+	client, err := f.getRPCClient(requirements.Network)
 	if err != nil {
 		return &types.SettleResponse{
 			Success:     false,
@@ -67,7 +67,7 @@ func settleExactScheme(payload *types.PaymentPayload, requirements *types.Paymen
 	}
 
 	// Build and send the transaction
-	txHash, err := sendTransferWithAuthorization(client, auth, requirements, signatureHex)
+	txHash, err := f.sendTransferWithAuthorization(client, auth, requirements, signatureHex)
 	if err != nil {
 		return &types.SettleResponse{
 			Success:     false,
@@ -84,7 +84,7 @@ func settleExactScheme(payload *types.PaymentPayload, requirements *types.Paymen
 	}
 }
 
-func sendTransferWithAuthorization(
+func (f *Facilitator) sendTransferWithAuthorization(
 	client *ethclient.Client,
 	auth *types.ExactEVMSchemeAuthorization,
 	requirements *types.PaymentRequirements,
@@ -134,7 +134,7 @@ func sendTransferWithAuthorization(
 	}
 
 	// Load facilitator's private key
-	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(cfg.PrivateKey, "0x"))
+	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(f.config.PrivateKey, "0x"))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse private key: %w", err)
 	}

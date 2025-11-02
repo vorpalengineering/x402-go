@@ -6,14 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/vorpalengineering/x402-go/types"
 )
 
 func TestSupported(t *testing.T) {
-	// Set Gin to test mode (disables debug logging)
-	gin.SetMode(gin.TestMode)
-
 	// Create test config
 	testConfig := &FacilitatorConfig{
 		Server: ServerConfig{
@@ -44,11 +40,8 @@ func TestSupported(t *testing.T) {
 		PrivateKey: "0x0000000000000000000000000000000000000000000000000000000000000001",
 	}
 
-	// Create a new Gin router
-	router := gin.New()
-
-	// Register routes with test config
-	RegisterRoutes(router, testConfig)
+	// Create facilitator
+	f := NewFacilitator(testConfig)
 
 	// Create a test HTTP request
 	req, err := http.NewRequest("GET", "/supported", nil)
@@ -60,7 +53,7 @@ func TestSupported(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	// Serve the request
-	router.ServeHTTP(recorder, req)
+	f.router.ServeHTTP(recorder, req)
 
 	// Check the status code
 	if recorder.Code != http.StatusOK {
@@ -102,20 +95,21 @@ func TestSupported(t *testing.T) {
 }
 
 func TestSupportedEmpty(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	// Create config with no supported schemes
 	testConfig := &FacilitatorConfig{
 		Supported: []types.SchemeNetworkPair{},
+		Log: LogConfig{
+			Level: "info",
+		},
 	}
 
-	router := gin.New()
-	RegisterRoutes(router, testConfig)
+	// Create facilitator
+	f := NewFacilitator(testConfig)
 
 	req, _ := http.NewRequest("GET", "/supported", nil)
 	recorder := httptest.NewRecorder()
 
-	router.ServeHTTP(recorder, req)
+	f.router.ServeHTTP(recorder, req)
 
 	// Should still return 200 with empty array
 	if recorder.Code != http.StatusOK {
@@ -131,8 +125,6 @@ func TestSupportedEmpty(t *testing.T) {
 }
 
 func TestSupportedMultipleSchemes(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	testConfig := &FacilitatorConfig{
 		Supported: []types.SchemeNetworkPair{
 			{Scheme: "exact", Network: "base"},
@@ -140,15 +132,18 @@ func TestSupportedMultipleSchemes(t *testing.T) {
 			{Scheme: "exact", Network: "optimism"},
 			{Scheme: "subscription", Network: "base"}, // Different scheme
 		},
+		Log: LogConfig{
+			Level: "info",
+		},
 	}
 
-	router := gin.New()
-	RegisterRoutes(router, testConfig)
+	// Create facilitator
+	f := NewFacilitator(testConfig)
 
 	req, _ := http.NewRequest("GET", "/supported", nil)
 	recorder := httptest.NewRecorder()
 
-	router.ServeHTTP(recorder, req)
+	f.router.ServeHTTP(recorder, req)
 
 	var response types.SupportedResponse
 	json.NewDecoder(recorder.Body).Decode(&response)

@@ -2,6 +2,7 @@ package facilitator
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 
@@ -10,21 +11,69 @@ import (
 	"github.com/vorpalengineering/x402-go/types"
 )
 
-var cfg *FacilitatorConfig
-
-var (
-	rpcClients   = make(map[string]*ethclient.Client)
+type Facilitator struct {
+	config       *FacilitatorConfig
+	router       *gin.Engine
+	rpcClients   map[string]*ethclient.Client
 	rpcClientsMu sync.RWMutex
-)
+}
 
-func InitializeRPCClients() error {
+func NewFacilitator(config *FacilitatorConfig) *Facilitator {
+	// Set Gin mode based on log level
+	if config.Log.Level == "debug" {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	// Create Gin router
+	router := gin.Default()
+
+	// Create Facilitator instance
+	f := &Facilitator{
+		config:     config,
+		router:     router,
+		rpcClients: make(map[string]*ethclient.Client),
+	}
+
+	// Register routes
+	f.registerRoutes()
+
+	return f
+}
+
+func (f *Facilitator) Run() error {
+	// Initialize RPC connections
+	log.Println("Initializing RPC connections...")
+	if err := f.initializeRPCClients(); err != nil {
+		return fmt.Errorf("failed to initialize RPC clients: %w", err)
+	}
+	log.Println("RPC connections established")
+
+	// Start server
+	addr := fmt.Sprintf("%s:%d", f.config.Server.Host, f.config.Server.Port)
+	log.Printf("Starting x402 Facilitator service on %s", addr)
+	log.Printf("Supported Schemes: %v", f.config.Supported)
+
+	if err := f.router.Run(addr); err != nil {
+		return fmt.Errorf("failed to start server: %w", err)
+	}
+
+	return nil
+}
+
+func (f *Facilitator) Close() {
+	f.closeAllRPCClients()
+}
+
+func (f *Facilitator) initializeRPCClients() error {
 	// Acquire write lock
-	rpcClientsMu.Lock()
-	defer rpcClientsMu.Unlock()
+	f.rpcClientsMu.Lock()
+	defer f.rpcClientsMu.Unlock()
 
 	// Dial eth client for each network in config
-	for network := range cfg.Networks {
-		networkCfg, err := cfg.GetNetworkConfig(network)
+	for network := range f.config.Networks {
+		networkCfg, err := f.config.GetNetworkConfig(network)
 		if err != nil {
 			return fmt.Errorf("failed to get config for %s: %w", network, err)
 		}
@@ -34,30 +83,30 @@ func InitializeRPCClients() error {
 			return fmt.Errorf("failed to connect to %s RPC: %w", network, err)
 		}
 
-		rpcClients[network] = client
+		f.rpcClients[network] = client
 	}
 
 	return nil
 }
 
-func getRPCClient(network string) (*ethclient.Client, error) {
+func (f *Facilitator) getRPCClient(network string) (*ethclient.Client, error) {
 	// Acquire read lock
-	rpcClientsMu.RLock()
-	if client, exists := rpcClients[network]; exists {
-		rpcClientsMu.RUnlock()
+	f.rpcClientsMu.RLock()
+	if client, exists := f.rpcClients[network]; exists {
+		f.rpcClientsMu.RUnlock()
 		return client, nil
 	}
-	rpcClientsMu.RUnlock()
+	f.rpcClientsMu.RUnlock()
 
 	// Lazy creation if not initialized
-	rpcClientsMu.Lock()
-	defer rpcClientsMu.Unlock()
+	f.rpcClientsMu.Lock()
+	defer f.rpcClientsMu.Unlock()
 
-	if client, exists := rpcClients[network]; exists {
+	if client, exists := f.rpcClients[network]; exists {
 		return client, nil
 	}
 
-	networkCfg, err := cfg.GetNetworkConfig(network)
+	networkCfg, err := f.config.GetNetworkConfig(network)
 	if err != nil {
 		return nil, err
 	}
@@ -67,31 +116,29 @@ func getRPCClient(network string) (*ethclient.Client, error) {
 		return nil, fmt.Errorf("failed to connect to RPC: %w", err)
 	}
 
-	rpcClients[network] = client
+	f.rpcClients[network] = client
 	return client, nil
 }
 
-func CloseAllRPCClients() {
+func (f *Facilitator) closeAllRPCClients() {
 	// Acquire write lock
-	rpcClientsMu.Lock()
-	defer rpcClientsMu.Unlock()
+	f.rpcClientsMu.Lock()
+	defer f.rpcClientsMu.Unlock()
 
 	// Close every eth client connection in pool
-	for _, client := range rpcClients {
+	for _, client := range f.rpcClients {
 		client.Close()
 	}
-	rpcClients = make(map[string]*ethclient.Client)
+	f.rpcClients = make(map[string]*ethclient.Client)
 }
 
-func RegisterRoutes(router *gin.Engine, config *FacilitatorConfig) {
-	cfg = config
-
-	router.POST("/verify", handleVerify)
-	router.POST("/settle", handleSettle)
-	router.GET("/supported", handleSupported)
+func (f *Facilitator) registerRoutes() {
+	f.router.POST("/verify", f.handleVerify)
+	f.router.POST("/settle", f.handleSettle)
+	f.router.GET("/supported", f.handleSupported)
 }
 
-func handleVerify(ctx *gin.Context) {
+func (f *Facilitator) handleVerify(ctx *gin.Context) {
 	// Decode request
 	var req types.VerifyRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -102,7 +149,7 @@ func handleVerify(ctx *gin.Context) {
 	}
 
 	// Check scheme-network pair is supported
-	if !cfg.IsSupported(req.PaymentRequirements.Scheme, req.PaymentRequirements.Network) {
+	if !f.config.IsSupported(req.PaymentRequirements.Scheme, req.PaymentRequirements.Network) {
 		res := types.VerifyResponse{
 			IsValid:       false,
 			InvalidReason: fmt.Sprintf("unsupported scheme-network: %s-%s", req.PaymentRequirements.Scheme, req.PaymentRequirements.Network),
@@ -112,7 +159,7 @@ func handleVerify(ctx *gin.Context) {
 	}
 
 	// Verify request
-	isValid, invalidReason := VerifyPayment(&req)
+	isValid, invalidReason := f.verifyPayment(&req)
 
 	// Craft response
 	res := types.VerifyResponse{
@@ -123,7 +170,7 @@ func handleVerify(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
-func handleSettle(ctx *gin.Context) {
+func (f *Facilitator) handleSettle(ctx *gin.Context) {
 	// Decode request
 	var req types.SettleRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -134,14 +181,14 @@ func handleSettle(ctx *gin.Context) {
 	}
 
 	// Settle request
-	resp := SettlePayment(&req)
+	resp := f.settlePayment(&req)
 
 	ctx.JSON(http.StatusOK, resp)
 }
 
-func handleSupported(ctx *gin.Context) {
+func (f *Facilitator) handleSupported(ctx *gin.Context) {
 	res := types.SupportedResponse{
-		Kinds: cfg.Supported,
+		Kinds: f.config.Supported,
 	}
 
 	ctx.JSON(http.StatusOK, res)

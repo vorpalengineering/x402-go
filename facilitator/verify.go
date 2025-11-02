@@ -16,7 +16,7 @@ import (
 	"github.com/vorpalengineering/x402-go/utils"
 )
 
-func VerifyPayment(req *types.VerifyRequest) (bool, string) {
+func (f *Facilitator) verifyPayment(req *types.VerifyRequest) (bool, string) {
 	// Decode the payment header from base64
 	paymentPayload, err := utils.DecodePaymentHeader(req.PaymentHeader)
 	if err != nil {
@@ -26,13 +26,13 @@ func VerifyPayment(req *types.VerifyRequest) (bool, string) {
 	// Verify based on scheme
 	switch paymentPayload.Scheme {
 	case "exact":
-		return verifyExactScheme(paymentPayload, &req.PaymentRequirements)
+		return f.verifyExactScheme(paymentPayload, &req.PaymentRequirements)
 	default:
 		return false, fmt.Sprintf("unsupported scheme: %s", paymentPayload.Scheme)
 	}
 }
 
-func verifyExactScheme(payload *types.PaymentPayload, requirements *types.PaymentRequirements) (bool, string) {
+func (f *Facilitator) verifyExactScheme(payload *types.PaymentPayload, requirements *types.PaymentRequirements) (bool, string) {
 	// Extract signature from payload (we need it for multiple steps)
 	signatureHex, ok := payload.Payload["signature"].(string)
 	if !ok || signatureHex == "" {
@@ -46,39 +46,39 @@ func verifyExactScheme(payload *types.PaymentPayload, requirements *types.Paymen
 	}
 
 	// Step 1: Signature Validation
-	if valid, reason := verifySignature(auth, payload, requirements); !valid {
+	if valid, reason := f.verifySignature(auth, payload, requirements); !valid {
 		return false, reason
 	}
 
 	// Step 2: Balance Verification
-	if valid, reason := verifyBalance(auth, requirements); !valid {
+	if valid, reason := f.verifyBalance(auth, requirements); !valid {
 		return false, reason
 	}
 
 	// Step 3: Amount Validation
-	if valid, reason := verifyAmount(auth, requirements); !valid {
+	if valid, reason := f.verifyAmount(auth, requirements); !valid {
 		return false, reason
 	}
 
 	// Step 4: Time Window Check
-	if valid, reason := verifyTimeWindow(auth); !valid {
+	if valid, reason := f.verifyTimeWindow(auth); !valid {
 		return false, reason
 	}
 
 	// Step 5: Parameter Matching
-	if valid, reason := verifyParameters(auth, requirements); !valid {
+	if valid, reason := f.verifyParameters(auth, requirements); !valid {
 		return false, reason
 	}
 
 	// Step 6: Transaction Simulation
-	if valid, reason := simulateTransaction(auth, requirements, signatureHex); !valid {
+	if valid, reason := f.simulateTransaction(auth, requirements, signatureHex); !valid {
 		return false, reason
 	}
 
 	return true, ""
 }
 
-func verifySignature(auth *types.ExactEVMSchemeAuthorization, payload *types.PaymentPayload, requirements *types.PaymentRequirements) (bool, string) {
+func (f *Facilitator) verifySignature(auth *types.ExactEVMSchemeAuthorization, payload *types.PaymentPayload, requirements *types.PaymentRequirements) (bool, string) {
 	// Step 1: Extract signature from payload
 	signatureHex, ok := payload.Payload["signature"].(string)
 	if !ok || signatureHex == "" {
@@ -143,7 +143,7 @@ func verifySignature(auth *types.ExactEVMSchemeAuthorization, payload *types.Pay
 	return true, ""
 }
 
-func verifyBalance(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
+func (f *Facilitator) verifyBalance(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
 	// Parse the payment amount
 	paymentAmount, ok := new(big.Int).SetString(auth.Value, 10)
 	if !ok {
@@ -151,7 +151,7 @@ func verifyBalance(auth *types.ExactEVMSchemeAuthorization, requirements *types.
 	}
 
 	// Get RPC client for the network
-	client, err := getRPCClient(requirements.Network)
+	client, err := f.getRPCClient(requirements.Network)
 	if err != nil {
 		return false, fmt.Sprintf("failed to connect to network: %v", err)
 	}
@@ -198,7 +198,7 @@ func verifyBalance(auth *types.ExactEVMSchemeAuthorization, requirements *types.
 	return true, ""
 }
 
-func verifyAmount(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
+func (f *Facilitator) verifyAmount(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
 	// Parse amounts as big.Int for safe comparison
 	paymentAmount, ok := new(big.Int).SetString(auth.Value, 10)
 	if !ok {
@@ -218,7 +218,7 @@ func verifyAmount(auth *types.ExactEVMSchemeAuthorization, requirements *types.P
 	return true, ""
 }
 
-func verifyTimeWindow(auth *types.ExactEVMSchemeAuthorization) (bool, string) {
+func (f *Facilitator) verifyTimeWindow(auth *types.ExactEVMSchemeAuthorization) (bool, string) {
 	now := time.Now().Unix()
 
 	// Check validAfter
@@ -234,7 +234,7 @@ func verifyTimeWindow(auth *types.ExactEVMSchemeAuthorization) (bool, string) {
 	return true, ""
 }
 
-func verifyParameters(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
+func (f *Facilitator) verifyParameters(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) (bool, string) {
 	// Verify recipient address matches
 	if auth.To != requirements.PayTo {
 		return false, fmt.Sprintf("recipient mismatch: got %s, expected %s", auth.To, requirements.PayTo)
@@ -245,9 +245,9 @@ func verifyParameters(auth *types.ExactEVMSchemeAuthorization, requirements *typ
 	return true, ""
 }
 
-func simulateTransaction(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements, signatureHex string) (bool, string) {
+func (f *Facilitator) simulateTransaction(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements, signatureHex string) (bool, string) {
 	// Get RPC client
-	client, err := getRPCClient(requirements.Network)
+	client, err := f.getRPCClient(requirements.Network)
 	if err != nil {
 		return false, fmt.Sprintf("failed to connect to network: %v", err)
 	}
