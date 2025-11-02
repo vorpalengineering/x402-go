@@ -45,7 +45,7 @@ func NewFacilitator(config *FacilitatorConfig) *Facilitator {
 func (f *Facilitator) Run() error {
 	// Initialize RPC connections
 	log.Println("Initializing RPC connections...")
-	if err := f.initializeRPCClients(); err != nil {
+	if err := f.DialRPCClients(); err != nil {
 		return fmt.Errorf("failed to initialize RPC clients: %w", err)
 	}
 	log.Println("RPC connections established")
@@ -66,7 +66,7 @@ func (f *Facilitator) Close() {
 	f.closeAllRPCClients()
 }
 
-func (f *Facilitator) initializeRPCClients() error {
+func (f *Facilitator) DialRPCClients() error {
 	// Acquire write lock
 	f.rpcClientsMu.Lock()
 	defer f.rpcClientsMu.Unlock()

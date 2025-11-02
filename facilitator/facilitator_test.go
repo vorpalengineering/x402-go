@@ -14,7 +14,7 @@ func TestSupported(t *testing.T) {
 	testConfig := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
-			Port: 8080,
+			Port: 4020,
 		},
 		Networks: map[string]NetworkConfig{
 			"base": {
@@ -150,5 +150,63 @@ func TestSupportedMultipleSchemes(t *testing.T) {
 
 	if len(response.Kinds) != 4 {
 		t.Errorf("Expected 4 supported kinds, got %d", len(response.Kinds))
+	}
+}
+
+func TestDialRPCClients(t *testing.T) {
+	testConfig := &FacilitatorConfig{
+		Networks: map[string]NetworkConfig{
+			"base": {
+				RpcUrl:  "https://mainnet.base.org",
+				ChainId: "8453",
+			},
+			"ethereum": {
+				RpcUrl:  "https://eth.llamarpc.com",
+				ChainId: "1",
+			},
+		},
+		Log: LogConfig{
+			Level: "info",
+		},
+	}
+
+	// Create facilitator
+	f := NewFacilitator(testConfig)
+	defer f.Close()
+
+	// Verify RPC clients are not initialized yet
+	f.rpcClientsMu.RLock()
+	initialCount := len(f.rpcClients)
+	f.rpcClientsMu.RUnlock()
+
+	if initialCount != 0 {
+		t.Errorf("Expected 0 RPC clients before initialization, got %d", initialCount)
+	}
+
+	// Initialize RPC connections
+	err := f.DialRPCClients()
+	if err != nil {
+		t.Fatalf("Failed to initialize RPC clients: %v", err)
+	}
+
+	// Verify RPC clients were created for each network
+	f.rpcClientsMu.RLock()
+	clientCount := len(f.rpcClients)
+	f.rpcClientsMu.RUnlock()
+
+	expectedCount := len(testConfig.Networks)
+	if clientCount != expectedCount {
+		t.Errorf("Expected %d RPC clients, got %d", expectedCount, clientCount)
+	}
+
+	// Verify we can get each RPC client
+	for network := range testConfig.Networks {
+		client, err := f.getRPCClient(network)
+		if err != nil {
+			t.Errorf("Failed to get RPC client for network %s: %v", network, err)
+		}
+		if client == nil {
+			t.Errorf("RPC client for network %s is nil", network)
+		}
 	}
 }
