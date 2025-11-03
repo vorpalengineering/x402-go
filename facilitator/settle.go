@@ -155,6 +155,16 @@ func (f *Facilitator) sendTransferWithAuthorization(
 		return "", fmt.Errorf("failed to get gas price: %w", err)
 	}
 
+	// Check gas price against max gas price from config
+	maxGasPrice, ok := new(big.Int).SetString(f.config.Transaction.MaxGasPrice, 10)
+	if !ok {
+		return "", fmt.Errorf("failed to parse max gas price: %s", f.config.Transaction.MaxGasPrice)
+	}
+
+	if gasPrice.Cmp(maxGasPrice) > 0 {
+		return "", fmt.Errorf("gas price too high: suggested %s wei exceeds max %s wei", gasPrice.String(), maxGasPrice.String())
+	}
+
 	// Estimate gas
 	tokenAddress := common.HexToAddress(requirements.Asset)
 	gasLimit, err := client.EstimateGas(ctx, ethereum.CallMsg{
