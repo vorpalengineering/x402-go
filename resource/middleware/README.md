@@ -15,7 +15,7 @@ Standalone Gin middleware for x402 payment verification. This package allows you
 ## Installation
 
 ```bash
-go get github.com/vorpalengineering/x402-go/middleware
+go get github.com/vorpalengineering/x402-go/resource/middleware
 ```
 
 ## Quick Start
@@ -25,7 +25,7 @@ package main
 
 import (
     "github.com/gin-gonic/gin"
-    "github.com/vorpalengineering/x402-go/middleware"
+    "github.com/vorpalengineering/x402-go/resource/middleware"
     "github.com/vorpalengineering/x402-go/types"
 )
 
@@ -241,6 +241,7 @@ The middleware handles errors automatically:
 ## See Also
 
 - [x402 Specification](https://github.com/coinbase/x402)
-- [x402-go Client Library](../client)
-- [x402-go Facilitator](../facilitator)
-- [x402 Reverse Proxy](../proxy)
+- [x402-go Facilitator Client](../../facilitator/client)
+- [x402-go Resource Client](../client)
+- [x402-go Facilitator](../../facilitator)
+- [x402 Reverse Proxy](../../cmd/proxy)

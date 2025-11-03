@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
-	"github.com/vorpalengineering/x402-go/client"
+	"github.com/vorpalengineering/x402-go/facilitator/client"
 	"github.com/vorpalengineering/x402-go/types"
 )
 
