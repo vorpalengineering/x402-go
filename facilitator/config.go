@@ -54,7 +54,10 @@ func LoadConfig(configPath string) (*FacilitatorConfig, error) {
 		return nil, fmt.Errorf("failed to load env vars: %w", err)
 	}
 
-	// TODO: validate config
+	// Validate config
+	if err := facilitatorConfig.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
+	}
 
 	return &facilitatorConfig, nil
 }
@@ -74,6 +77,66 @@ func (config *FacilitatorConfig) IsSupported(scheme, network string) bool {
 		}
 	}
 	return false
+}
+
+func (config *FacilitatorConfig) Validate() error {
+	// Validate server config
+	if config.Server.Port <= 0 || config.Server.Port > 65535 {
+		return fmt.Errorf("invalid server port: %d (must be 1-65535)", config.Server.Port)
+	}
+
+	// Validate networks
+	if len(config.Networks) == 0 {
+		return fmt.Errorf("at least one network must be configured")
+	}
+
+	for network, netCfg := range config.Networks {
+		if netCfg.RpcUrl == "" {
+			return fmt.Errorf("network %s missing rpc_url", network)
+		}
+		if netCfg.ChainId == "" {
+			return fmt.Errorf("network %s missing chain_id", network)
+		}
+	}
+
+	// Validate supported schemes reference valid networks
+	for _, pair := range config.Supported {
+		if pair.Scheme == "" {
+			return fmt.Errorf("supported scheme cannot be empty")
+		}
+		if pair.Network == "" {
+			return fmt.Errorf("supported network cannot be empty")
+		}
+		if _, exists := config.Networks[pair.Network]; !exists {
+			return fmt.Errorf("supported network %s is not defined in networks config", pair.Network)
+		}
+	}
+
+	// Validate transaction config
+	if config.Transaction.TimeoutSeconds <= 0 {
+		return fmt.Errorf("transaction timeout must be positive, got %d", config.Transaction.TimeoutSeconds)
+	}
+	if config.Transaction.MaxGasPrice == "" {
+		return fmt.Errorf("transaction max_gas_price must be set")
+	}
+
+	// Validate log config
+	validLogLevels := map[string]bool{
+		"debug": true,
+		"info":  true,
+		"warn":  true,
+		"error": true,
+	}
+	if !validLogLevels[config.Log.Level] {
+		return fmt.Errorf("invalid log level: %s (must be debug, info, warn, or error)", config.Log.Level)
+	}
+
+	// Validate private key is set
+	if config.PrivateKey == "" {
+		return fmt.Errorf("private key must be set")
+	}
+
+	return nil
 }
 
 func loadEnvVars(config *FacilitatorConfig) error {
