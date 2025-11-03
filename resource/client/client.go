@@ -7,15 +7,10 @@ import (
 	"github.com/vorpalengineering/x402-go/types"
 )
 
-// Client is an HTTP client that handles x402 payment protocol
-// for accessing protected resources
 type Client struct {
 	httpClient *http.Client
-	// TODO: Add payment strategy (exact, subscription, etc.)
-	// TODO: Add facilitator client for payment verification
 }
 
-// NewClient creates a new resource client
 func NewClient(opts ...ClientOption) *Client {
 	c := &Client{
 		httpClient: &http.Client{},
@@ -28,17 +23,14 @@ func NewClient(opts ...ClientOption) *Client {
 	return c
 }
 
-// ClientOption is a function that configures a Client
 type ClientOption func(*Client)
 
-// WithHTTPClient sets a custom HTTP client
 func WithHTTPClient(httpClient *http.Client) ClientOption {
 	return func(c *Client) {
 		c.httpClient = httpClient
 	}
 }
 
-// Get performs a GET request to a protected resource
 func (c *Client) Get(url string) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -48,7 +40,6 @@ func (c *Client) Get(url string) (*http.Response, error) {
 	return c.Do(req)
 }
 
-// Do executes an HTTP request with x402 payment handling
 func (c *Client) Do(req *http.Request) (*http.Response, error) {
 	// Make initial request
 	resp, err := c.httpClient.Do(req)
@@ -70,7 +61,6 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-// handlePaymentRequired processes a 402 response and retries with payment
 func (c *Client) handlePaymentRequired(originalReq *http.Request, paymentResp *types.PaymentRequiredResponse) (*http.Response, error) {
 	// TODO: Implement payment generation logic
 	// 1. Select payment requirements from Accepts

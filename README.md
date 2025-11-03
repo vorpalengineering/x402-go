@@ -75,14 +75,14 @@ go run ./cmd/facilitator
 go run ./cmd/facilitator --config=path/to/config.facilitator.yaml
 ```
 
-The service will start on port 8080 with the following endpoints:
+The service will start on the configured port with the following endpoints:
 - `GET /supported` - Get supported scheme-network combinations
 - `POST /verify` - Verify payment payloads
 - `POST /settle` - Settle payments on-chain
 
 ### Resource Middleware (`/resource/middleware`)
 
-Standalone Gin middleware for adding x402 payment verification to any Gin-based API.
+Middleware for adding x402 payment verification to any Gin-based API.
 
 ```go
 import "github.com/vorpalengineering/x402-go/resource/middleware"
