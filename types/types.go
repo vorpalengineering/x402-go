@@ -1,5 +1,11 @@
 package types
 
+import (
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
+)
+
 // Client/Facilitator types
 
 type VerifyRequest struct {
@@ -77,4 +83,16 @@ type ExactEVMSchemeAuthorization struct {
 	ValidAfter  int64  `json:"validAfter"`
 	ValidBefore int64  `json:"validBefore"`
 	Nonce       string `json:"nonce"`
+}
+
+type EIP3009Authorization struct {
+	From        common.Address
+	To          common.Address
+	Value       *big.Int
+	ValidAfter  *big.Int
+	ValidBefore *big.Int
+	Nonce       [32]byte
+	V           uint8
+	R           [32]byte
+	S           [32]byte
 }

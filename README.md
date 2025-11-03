@@ -109,17 +109,46 @@ See [resource/middleware/README.md](./resource/middleware/README.md) for detaile
 
 ### Resource Client (`/resource/client`)
 
-Client library for consuming x402-protected resources (work in progress).
+Client library for accessing x402-protected resources with explicit payment flow control.
 
 ```go
-import "github.com/vorpalengineering/x402-go/resource/client"
+import (
+    "github.com/ethereum/go-ethereum/crypto"
+    "github.com/vorpalengineering/x402-go/resource/client"
+)
 
-// Create new resource client
-c := client.NewClient()
+// Load your private key
+privateKey, err := crypto.HexToECDSA("your_private_key_hex")
+if err != nil {
+    log.Fatal(err)
+}
 
-// Make request to protected resource
-resp, err := c.Get("https://api.example.com/protected/resource")
-// Client automatically handles 402 Payment Required responses
+// Create resource client
+c := client.NewClient(privateKey)
+
+// Step 1: Check if resource requires payment
+resp, requirements, err := c.CheckForPaymentRequired("GET", "https://api.example.com/data", "", nil)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Step 2: If payment required, inspect requirements and decide to pay
+if len(requirements) > 0 {
+    selected := requirements[0]
+
+    // Check balance, validate amount, etc.
+    log.Printf("Payment required: %s %s", selected.MaxAmountRequired, selected.Network)
+
+    // Step 3: Pay for resource
+    resp, err = c.PayForResource("GET", "https://api.example.com/data", "", nil, &selected)
+    if err != nil {
+        log.Fatal(err)
+    }
+}
+
+// Use the response
+defer resp.Body.Close()
+body, _ := io.ReadAll(resp.Body)
 ```
 
 ## x402 Protocol
