@@ -16,7 +16,7 @@ import (
 	"github.com/vorpalengineering/x402-go/utils"
 )
 
-func (f *Facilitator) settlePayment(req *types.SettleRequest) *types.SettleResponse {
+func (f *Facilitator) settlePayment(ctx context.Context, req *types.SettleRequest) *types.SettleResponse {
 	// Decode the payment header from base64
 	paymentPayload, err := utils.DecodePaymentHeader(req.PaymentHeader)
 	if err != nil {
@@ -29,7 +29,7 @@ func (f *Facilitator) settlePayment(req *types.SettleRequest) *types.SettleRespo
 	// Settle based on scheme
 	switch paymentPayload.Scheme {
 	case "exact":
-		return f.settleExactScheme(paymentPayload, &req.PaymentRequirements)
+		return f.settleExactScheme(ctx, paymentPayload, &req.PaymentRequirements)
 	default:
 		return &types.SettleResponse{
 			Success:     false,
@@ -38,7 +38,7 @@ func (f *Facilitator) settlePayment(req *types.SettleRequest) *types.SettleRespo
 	}
 }
 
-func (f *Facilitator) settleExactScheme(payload *types.PaymentPayload, requirements *types.PaymentRequirements) *types.SettleResponse {
+func (f *Facilitator) settleExactScheme(ctx context.Context, payload *types.PaymentPayload, requirements *types.PaymentRequirements) *types.SettleResponse {
 	// Extract signature from payload
 	signatureHex, ok := payload.Payload["signature"].(string)
 	if !ok || signatureHex == "" {
@@ -67,7 +67,7 @@ func (f *Facilitator) settleExactScheme(payload *types.PaymentPayload, requireme
 	}
 
 	// Build and send the transaction
-	txHash, err := f.sendTransferWithAuthorization(client, auth, requirements, signatureHex)
+	txHash, err := f.sendTransferWithAuthorization(ctx, client, auth, requirements, signatureHex)
 	if err != nil {
 		return &types.SettleResponse{
 			Success:     false,
@@ -85,6 +85,7 @@ func (f *Facilitator) settleExactScheme(payload *types.PaymentPayload, requireme
 }
 
 func (f *Facilitator) sendTransferWithAuthorization(
+	ctx context.Context,
 	client *ethclient.Client,
 	auth *types.ExactEVMSchemeAuthorization,
 	requirements *types.PaymentRequirements,
@@ -143,7 +144,6 @@ func (f *Facilitator) sendTransferWithAuthorization(
 	facilitatorAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
 
 	// Get nonce for facilitator address
-	ctx := context.Background()
 	nonce, err := client.PendingNonceAt(ctx, facilitatorAddr)
 	if err != nil {
 		return "", fmt.Errorf("failed to get nonce: %w", err)

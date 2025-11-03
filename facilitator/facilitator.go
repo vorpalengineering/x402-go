@@ -1,10 +1,12 @@
 package facilitator
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gin-gonic/gin"
@@ -42,7 +44,7 @@ func NewFacilitator(config *FacilitatorConfig) *Facilitator {
 	return f
 }
 
-func (f *Facilitator) Run() error {
+func (f *Facilitator) Run(ctx context.Context) error {
 	// Initialize RPC connections
 	log.Println("Initializing RPC connections...")
 	if err := f.DialRPCClients(); err != nil {
@@ -55,11 +57,41 @@ func (f *Facilitator) Run() error {
 	log.Printf("Starting x402 Facilitator service on %s", addr)
 	log.Printf("Supported Schemes: %v", f.config.Supported)
 
-	if err := f.router.Run(addr); err != nil {
-		return fmt.Errorf("failed to start server: %w", err)
+	// Create HTTP server with our router
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: f.router,
 	}
 
-	return nil
+	// Channel to receive server errors
+	serverErrors := make(chan error, 1)
+
+	// Start server in a goroutine
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErrors <- fmt.Errorf("failed to start server: %w", err)
+		}
+	}()
+
+	// Wait for context cancellation or server error
+	select {
+	case err := <-serverErrors:
+		return err
+	case <-ctx.Done():
+		log.Println("Shutting down facilitator service...")
+
+		// Create shutdown context with timeout
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Attempt graceful shutdown
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("server shutdown failed: %w", err)
+		}
+
+		log.Println("Facilitator service stopped")
+		return nil
+	}
 }
 
 func (f *Facilitator) Close() {
@@ -138,11 +170,11 @@ func (f *Facilitator) registerRoutes() {
 	f.router.GET("/supported", f.handleSupported)
 }
 
-func (f *Facilitator) handleVerify(ctx *gin.Context) {
+func (f *Facilitator) handleVerify(ginCtx *gin.Context) {
 	// Decode request
 	var req types.VerifyRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
+	if err := ginCtx.ShouldBindJSON(&req); err != nil {
+		ginCtx.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
 		return
@@ -154,12 +186,15 @@ func (f *Facilitator) handleVerify(ctx *gin.Context) {
 			IsValid:       false,
 			InvalidReason: fmt.Sprintf("unsupported scheme-network: %s-%s", req.PaymentRequirements.Scheme, req.PaymentRequirements.Network),
 		}
-		ctx.JSON(http.StatusOK, res)
+		ginCtx.JSON(http.StatusOK, res)
 		return
 	}
 
+	// Extract context from HTTP request
+	ctx := ginCtx.Request.Context()
+
 	// Verify request
-	isValid, invalidReason := f.verifyPayment(&req)
+	isValid, invalidReason := f.verifyPayment(ctx, &req)
 
 	// Craft response
 	res := types.VerifyResponse{
@@ -167,23 +202,26 @@ func (f *Facilitator) handleVerify(ctx *gin.Context) {
 		InvalidReason: invalidReason,
 	}
 
-	ctx.JSON(http.StatusOK, res)
+	ginCtx.JSON(http.StatusOK, res)
 }
 
-func (f *Facilitator) handleSettle(ctx *gin.Context) {
+func (f *Facilitator) handleSettle(ginCtx *gin.Context) {
 	// Decode request
 	var req types.SettleRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
+	if err := ginCtx.ShouldBindJSON(&req); err != nil {
+		ginCtx.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
 		return
 	}
 
-	// Settle request
-	resp := f.settlePayment(&req)
+	// Extract context from HTTP request
+	ctx := ginCtx.Request.Context()
 
-	ctx.JSON(http.StatusOK, resp)
+	// Settle request
+	resp := f.settlePayment(ctx, &req)
+
+	ginCtx.JSON(http.StatusOK, resp)
 }
 
 func (f *Facilitator) handleSupported(ctx *gin.Context) {
