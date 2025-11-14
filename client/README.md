@@ -12,7 +12,7 @@ Client library for accessing x402-protected resources with explicit control over
 ## Installation
 
 ```bash
-go get github.com/vorpalengineering/x402-go/resource/client
+go get github.com/vorpalengineering/x402-go/client
 ```
 
 ## Quick Start
@@ -26,7 +26,7 @@ import (
     "log"
 
     "github.com/ethereum/go-ethereum/crypto"
-    "github.com/vorpalengineering/x402-go/resource/client"
+    "github.com/vorpalengineering/x402-go/client"
 )
 
 func main() {

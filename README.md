@@ -80,12 +80,12 @@ The service will start on the configured port with the following endpoints:
 - `POST /verify` - Verify payment payloads
 - `POST /settle` - Settle payments on-chain
 
-### Resource Middleware (`/resource/middleware`)
+### Middleware (`/middleware`)
 
 Middleware for adding x402 payment verification to any Gin-based API.
 
 ```go
-import "github.com/vorpalengineering/x402-go/resource/middleware"
+import "github.com/vorpalengineering/x402-go/middleware"
 
 // Configure middleware
 x402 := middleware.NewX402Middleware(&middleware.Config{
@@ -105,16 +105,16 @@ x402 := middleware.NewX402Middleware(&middleware.Config{
 router.Use(x402.Handler())
 ```
 
-See [resource/middleware/README.md](./resource/middleware/README.md) for detailed documentation.
+See [middleware/README.md](./middleware/README.md) for detailed documentation.
 
-### Resource Client (`/resource/client`)
+### Client (`/client`)
 
 Client library for accessing x402-protected resources with explicit payment flow control.
 
 ```go
 import (
     "github.com/ethereum/go-ethereum/crypto"
-    "github.com/vorpalengineering/x402-go/resource/client"
+    "github.com/vorpalengineering/x402-go/client"
 )
 
 // Load your private key
