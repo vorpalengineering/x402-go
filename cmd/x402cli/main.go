@@ -32,16 +32,19 @@ func main() {
 func checkCommand() {
 	// Define flags for check command
 	checkFlags := flag.NewFlagSet("check", flag.ExitOnError)
-	resource := checkFlags.String("resource", "", "URL of the resource to check (required)")
+	var resource string
+	checkFlags.StringVar(&resource, "resource", "", "URL of the resource to check (required)")
+	checkFlags.StringVar(&resource, "r", "", "URL of the resource to check (required)")
 
 	// Parse flags
 	checkFlags.Parse(os.Args[2:])
 
 	// Validate required flags
-	if *resource == "" {
-		fmt.Fprintln(os.Stderr, "Error: --resource flag is required")
+	if resource == "" {
+		fmt.Fprintln(os.Stderr, "Error: --resource or -r flag is required")
 		fmt.Fprintln(os.Stderr, "\nUsage:")
 		fmt.Fprintln(os.Stderr, "  x402cli check --resource <url>")
+		fmt.Fprintln(os.Stderr, "  x402cli check --r <url>")
 		checkFlags.PrintDefaults()
 		os.Exit(1)
 	}
@@ -50,7 +53,7 @@ func checkCommand() {
 	c := client.NewClient(nil)
 
 	// Check if payment is required
-	resp, requirements, err := c.CheckForPaymentRequired("GET", *resource, "", nil)
+	resp, requirements, err := c.CheckForPaymentRequired("GET", resource, "", nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -58,7 +61,7 @@ func checkCommand() {
 	defer resp.Body.Close()
 
 	// Print results
-	fmt.Printf("Resource: %s\n", *resource)
+	fmt.Printf("Resource: %s\n", resource)
 	fmt.Printf("Status: %d %s\n\n", resp.StatusCode, resp.Status)
 
 	if len(requirements) > 0 {
