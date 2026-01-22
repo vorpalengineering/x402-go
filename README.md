@@ -4,6 +4,43 @@ Go implementation of the x402 protocol for verifiable payments.
 
 ## Packages
 
+### CLI Tool (`/cmd/x402cli`)
+
+Command-line tool for interacting with x402-protected resources.
+
+```bash
+# Check if a resource requires payment
+go run ./cmd/x402cli check --resource http://localhost:3000/api/data
+
+# Or build and install
+go build ./cmd/x402cli
+./x402cli check --resource http://localhost:3000/api/data
+
+# Or install to $GOPATH/bin
+go install ./cmd/x402cli
+x402cli check --resource http://localhost:3000/api/data
+```
+
+**Example output:**
+```
+Resource: http://localhost:3000/api/data
+Status: 402 Payment Required
+
+Payment Required (402)
+
+Accepts:
+{
+  "scheme": "exact",
+  "network": "base",
+  "maxAmountRequired": "1000000",
+  "payTo": "0x123...",
+  "asset": "0x833...",
+  "resource": "/api/data",
+  "description": "API access",
+  "maxTimeoutSeconds": 120
+}
+```
+
 ### Client (`/client`)
 
 Client library for accessing x402-protected resources with explicit payment flow control.

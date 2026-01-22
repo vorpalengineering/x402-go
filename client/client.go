@@ -26,11 +26,17 @@ type Client struct {
 }
 
 func NewClient(privateKey *ecdsa.PrivateKey) *Client {
-	return &Client{
+	client := &Client{
 		httpClient: &http.Client{},
 		privateKey: privateKey,
-		address:    crypto.PubkeyToAddress(privateKey.PublicKey),
 	}
+
+	// Only derive address if we have a private key
+	if privateKey != nil {
+		client.address = crypto.PubkeyToAddress(privateKey.PublicKey)
+	}
+
+	return client
 }
 
 func (c *Client) CheckForPaymentRequired(
@@ -77,6 +83,11 @@ func (c *Client) CheckForPaymentRequired(
 }
 
 func (c *Client) GeneratePayment(requirements *types.PaymentRequirements) (string, error) {
+	// Check that we have a private key for payment generation
+	if c.privateKey == nil {
+		return "", fmt.Errorf("cannot generate payment: client was created without a private key")
+	}
+
 	// Validate scheme
 	if requirements.Scheme != "exact" {
 		return "", fmt.Errorf("unsupported payment scheme: %s (only 'exact' is supported)", requirements.Scheme)
