@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/vorpalengineering/x402-go/client"
+	"github.com/vorpalengineering/x402-go/resource/client"
 	"github.com/vorpalengineering/x402-go/types"
 )
 
