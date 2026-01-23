@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/vorpalengineering/x402-go/facilitator/client"
 	"github.com/vorpalengineering/x402-go/types"
+	"github.com/vorpalengineering/x402-go/utils"
 )
 
 type X402Middleware struct {
@@ -40,13 +41,22 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 			return
 		}
 
+		// Decode payment header into PaymentPayload
+		paymentPayload, err := utils.DecodePaymentHeader(paymentHeader)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"error": "Invalid payment header: " + err.Error(),
+			})
+			ctx.Abort()
+			return
+		}
+
 		// Get payment requirements for this route
 		requirements := m.getRequirements(ctx.Request.URL.Path)
 
 		// Verify payment with facilitator
 		verifyReq := &types.VerifyRequest{
-			X402Version:         1,
-			PaymentHeader:       paymentHeader,
+			PaymentPayload:      *paymentPayload,
 			PaymentRequirements: requirements,
 		}
 
@@ -64,7 +74,7 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 		if !verifyResp.IsValid {
 			// Payment is invalid, return 402 with reason
 			response := types.PaymentRequired{
-				X402Version: 1,
+				X402Version: 2,
 				Accepts:     []types.PaymentRequirements{requirements},
 				Error:       verifyResp.InvalidReason,
 			}
@@ -88,8 +98,7 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 		// STEP 3: Settle payment if handler succeeded (2xx status)
 		if buffered.Status() >= 200 && buffered.Status() < 300 {
 			settleReq := &types.SettleRequest{
-				X402Version:         1,
-				PaymentHeader:       paymentHeader,
+				PaymentPayload:      *paymentPayload,
 				PaymentRequirements: requirements,
 			}
 
@@ -154,19 +163,19 @@ func (m *X402Middleware) getRequirements(path string) types.PaymentRequirements 
 		}
 	}
 
-	// Use default requirements with resource set to the path
-	requirements := m.config.DefaultRequirements
-	if requirements.Resource == "" {
-		requirements.Resource = path
-	}
-	return requirements
+	return m.config.DefaultRequirements
 }
 
 func (m *X402Middleware) sendPaymentRequired(ctx *gin.Context, path string) {
 	requirements := m.getRequirements(path)
 	response := types.PaymentRequired{
-		X402Version: 1,
-		Accepts:     []types.PaymentRequirements{requirements},
+		X402Version: 2,
+		Resource: &types.ResourceInfo{
+			URL:         path,
+			Description: "",
+			MimeType:    "",
+		},
+		Accepts: []types.PaymentRequirements{requirements},
 	}
 	ctx.JSON(http.StatusPaymentRequired, response)
 	ctx.Abort()
