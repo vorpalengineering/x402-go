@@ -26,8 +26,8 @@ type MiddlewareConfig struct {
 	// RouteResources maps a specific route to its ResourceInfo
 	RouteResources map[string]*types.ResourceInfo
 
-	// PaymentHeaderName is the name of the HTTP header containing the payment
-	// Defaults to "X-Payment" if not specified
+	// PaymentHeaderName is the name of the HTTP header containing the payment signature
+	// Defaults to "PAYMENT-SIGNATURE" if not specified
 	PaymentHeaderName string
 }
 
@@ -57,7 +57,7 @@ func (c *MiddlewareConfig) Validate() error {
 
 func (c *MiddlewareConfig) GetPaymentHeaderName() string {
 	if c.PaymentHeaderName == "" {
-		return "X-Payment"
+		return "PAYMENT-SIGNATURE"
 	}
 	return c.PaymentHeaderName
 }

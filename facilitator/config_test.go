@@ -8,7 +8,7 @@ import (
 )
 
 func TestValidateConfig(t *testing.T) {
-	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	privKey, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	validConfig := &FacilitatorConfig{
 		Server: ServerConfig{
@@ -16,13 +16,12 @@ func TestValidateConfig(t *testing.T) {
 			Port: 8080,
 		},
 		Networks: map[string]NetworkConfig{
-			"base": {
-				RpcUrl:  "https://mainnet.base.org",
-				ChainId: "8453",
+			"eip155:8453": {
+				RpcUrl: "https://mainnet.base.org",
 			},
 		},
 		Supported: []types.SupportedKind{
-			{Scheme: "exact", Network: "base"},
+			{Scheme: "exact", Network: "eip155:8453"},
 		},
 		Transaction: TransactionConfig{
 			TimeoutSeconds: 120,
@@ -44,7 +43,7 @@ func TestValidateConfig(t *testing.T) {
 }
 
 func TestValidateInvalidPort(t *testing.T) {
-	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	privKey, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
@@ -52,7 +51,9 @@ func TestValidateInvalidPort(t *testing.T) {
 			Port: 0, // Invalid
 		},
 		Networks: map[string]NetworkConfig{
-			"base": {RpcUrl: "https://mainnet.base.org", ChainId: "8453"},
+			"eip155:8453": {
+				RpcUrl: "https://mainnet.base.org",
+			},
 		},
 		Transaction: TransactionConfig{
 			TimeoutSeconds: 120,
@@ -74,7 +75,7 @@ func TestValidateInvalidPort(t *testing.T) {
 }
 
 func TestValidateNoNetworks(t *testing.T) {
-	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	privKey, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
@@ -102,7 +103,7 @@ func TestValidateNoNetworks(t *testing.T) {
 }
 
 func TestValidateMissingRpcUrl(t *testing.T) {
-	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	privKey, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
@@ -110,9 +111,8 @@ func TestValidateMissingRpcUrl(t *testing.T) {
 			Port: 8080,
 		},
 		Networks: map[string]NetworkConfig{
-			"base": {
-				RpcUrl:  "", // Missing
-				ChainId: "8453",
+			"eip155:8453": {
+				RpcUrl: "", // Missing
 			},
 		},
 		Transaction: TransactionConfig{
@@ -134,41 +134,8 @@ func TestValidateMissingRpcUrl(t *testing.T) {
 	}
 }
 
-func TestValidateMissingChainId(t *testing.T) {
-	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
-	addr := crypto.PubkeyToAddress(privKey.PublicKey)
-	config := &FacilitatorConfig{
-		Server: ServerConfig{
-			Host: "localhost",
-			Port: 8080,
-		},
-		Networks: map[string]NetworkConfig{
-			"base": {
-				RpcUrl:  "https://mainnet.base.org",
-				ChainId: "", // Missing
-			},
-		},
-		Transaction: TransactionConfig{
-			TimeoutSeconds: 120,
-			MaxGasPrice:    "100000000000",
-		},
-		Log: LogConfig{
-			Level: "info",
-		},
-		Signer: SignerConfig{
-			Address:    addr,
-			PrivateKey: privKey,
-		},
-	}
-
-	err = config.Validate()
-	if err == nil {
-		t.Error("Expected error for missing chain_id, got nil")
-	}
-}
-
 func TestValidateUndefinedNetwork(t *testing.T) {
-	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	privKey, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
@@ -176,13 +143,12 @@ func TestValidateUndefinedNetwork(t *testing.T) {
 			Port: 8080,
 		},
 		Networks: map[string]NetworkConfig{
-			"base": {
-				RpcUrl:  "https://mainnet.base.org",
-				ChainId: "8453",
+			"eip155:8453": {
+				RpcUrl: "https://mainnet.base.org",
 			},
 		},
 		Supported: []types.SupportedKind{
-			{Scheme: "exact", Network: "ethereum"}, // Network not defined
+			{Scheme: "exact", Network: "eip155:1"}, // Network not defined
 		},
 		Transaction: TransactionConfig{
 			TimeoutSeconds: 120,
@@ -204,7 +170,7 @@ func TestValidateUndefinedNetwork(t *testing.T) {
 }
 
 func TestValidateEmptyScheme(t *testing.T) {
-	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	privKey, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
@@ -212,13 +178,12 @@ func TestValidateEmptyScheme(t *testing.T) {
 			Port: 8080,
 		},
 		Networks: map[string]NetworkConfig{
-			"base": {
-				RpcUrl:  "https://mainnet.base.org",
-				ChainId: "8453",
+			"eip155:8453": {
+				RpcUrl: "https://mainnet.base.org",
 			},
 		},
 		Supported: []types.SupportedKind{
-			{Scheme: "", Network: "base"}, // Empty scheme
+			{Scheme: "", Network: "eip155:8453"}, // Empty scheme
 		},
 		Transaction: TransactionConfig{
 			TimeoutSeconds: 120,
@@ -240,7 +205,7 @@ func TestValidateEmptyScheme(t *testing.T) {
 }
 
 func TestValidateInvalidTimeout(t *testing.T) {
-	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	privKey, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
@@ -248,7 +213,9 @@ func TestValidateInvalidTimeout(t *testing.T) {
 			Port: 8080,
 		},
 		Networks: map[string]NetworkConfig{
-			"base": {RpcUrl: "https://mainnet.base.org", ChainId: "8453"},
+			"eip155:8453": {
+				RpcUrl: "https://mainnet.base.org",
+			},
 		},
 		Transaction: TransactionConfig{
 			TimeoutSeconds: 0, // Invalid
@@ -270,7 +237,7 @@ func TestValidateInvalidTimeout(t *testing.T) {
 }
 
 func TestValidateMissingMaxGasPrice(t *testing.T) {
-	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	privKey, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
@@ -278,7 +245,9 @@ func TestValidateMissingMaxGasPrice(t *testing.T) {
 			Port: 8080,
 		},
 		Networks: map[string]NetworkConfig{
-			"base": {RpcUrl: "https://mainnet.base.org", ChainId: "8453"},
+			"eip155:8453": {
+				RpcUrl: "https://mainnet.base.org",
+			},
 		},
 		Transaction: TransactionConfig{
 			TimeoutSeconds: 120,
@@ -300,7 +269,7 @@ func TestValidateMissingMaxGasPrice(t *testing.T) {
 }
 
 func TestValidateInvalidLogLevel(t *testing.T) {
-	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	privKey, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
@@ -308,7 +277,9 @@ func TestValidateInvalidLogLevel(t *testing.T) {
 			Port: 8080,
 		},
 		Networks: map[string]NetworkConfig{
-			"base": {RpcUrl: "https://mainnet.base.org", ChainId: "8453"},
+			"eip155:8453": {
+				RpcUrl: "https://mainnet.base.org",
+			},
 		},
 		Transaction: TransactionConfig{
 			TimeoutSeconds: 120,
@@ -330,7 +301,7 @@ func TestValidateInvalidLogLevel(t *testing.T) {
 }
 
 func TestValidateMissingPrivateKey(t *testing.T) {
-	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	privKey, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
@@ -338,7 +309,9 @@ func TestValidateMissingPrivateKey(t *testing.T) {
 			Port: 8080,
 		},
 		Networks: map[string]NetworkConfig{
-			"base": {RpcUrl: "https://mainnet.base.org", ChainId: "8453"},
+			"eip155:8453": {
+				RpcUrl: "https://mainnet.base.org",
+			},
 		},
 		Transaction: TransactionConfig{
 			TimeoutSeconds: 120,

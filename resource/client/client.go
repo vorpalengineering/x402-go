@@ -179,7 +179,7 @@ func (c *Client) PayForResource(
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	req.Header.Set("X-Payment", paymentHeader)
+	req.Header.Set("PAYMENT-SIGNATURE", paymentHeader)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

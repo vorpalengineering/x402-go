@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -78,6 +80,7 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 				Accepts:     []types.PaymentRequirements{requirements},
 				Error:       verifyResp.InvalidReason,
 			}
+			setPaymentRequiredHeader(ctx, &response)
 			ctx.JSON(http.StatusPaymentRequired, response)
 			ctx.Abort()
 			return
@@ -125,6 +128,9 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 			ctx.Set("x402_settlement_tx", settleResp.Transaction)
 			ctx.Set("x402_settlement_network", settleResp.Network)
 			ctx.Set("x402_settlement_payer", settleResp.Payer)
+
+			// Set PAYMENT-RESPONSE header with settlement details
+			setPaymentResponseHeader(ctx, settleResp)
 
 			log.Printf("Payment settled: tx=%s, network=%s, payer=%s",
 				settleResp.Transaction, settleResp.Network, settleResp.Payer)
@@ -177,6 +183,29 @@ func (m *X402Middleware) sendPaymentRequired(ctx *gin.Context, path string) {
 		},
 		Accepts: []types.PaymentRequirements{requirements},
 	}
+	setPaymentRequiredHeader(ctx, &response)
 	ctx.JSON(http.StatusPaymentRequired, response)
 	ctx.Abort()
+}
+
+// setPaymentRequiredHeader encodes the PaymentRequired response as base64 JSON
+// and sets it as the PAYMENT-REQUIRED response header.
+func setPaymentRequiredHeader(ctx *gin.Context, response *types.PaymentRequired) {
+	data, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("Failed to encode PAYMENT-REQUIRED header: %v", err)
+		return
+	}
+	ctx.Header("PAYMENT-REQUIRED", base64.StdEncoding.EncodeToString(data))
+}
+
+// setPaymentResponseHeader encodes the SettleResponse as base64 JSON
+// and sets it as the PAYMENT-RESPONSE response header.
+func setPaymentResponseHeader(ctx *gin.Context, response *types.SettleResponse) {
+	data, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("Failed to encode PAYMENT-RESPONSE header: %v", err)
+		return
+	}
+	ctx.Header("PAYMENT-RESPONSE", base64.StdEncoding.EncodeToString(data))
 }

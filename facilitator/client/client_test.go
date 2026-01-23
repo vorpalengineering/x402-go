@@ -41,9 +41,16 @@ func TestVerify(t *testing.T) {
 
 		// Make request
 		req := &types.VerifyRequest{
+			PaymentPayload: types.PaymentPayload{
+				X402Version: 2,
+				Accepted: types.PaymentRequirements{
+					Scheme:  "exact",
+					Network: "eip155:8453",
+				},
+			},
 			PaymentRequirements: types.PaymentRequirements{
 				Scheme:  "exact",
-				Network: "base",
+				Network: "eip155:8453",
 			},
 		}
 
@@ -117,7 +124,7 @@ func TestSettle(t *testing.T) {
 			resp := types.SettleResponse{
 				Success:     true,
 				Transaction: "0xabc123",
-				Network:     "41",
+				Network:     "eip155:8453",
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(resp)
@@ -126,9 +133,16 @@ func TestSettle(t *testing.T) {
 
 		client := NewClient(server.URL)
 		req := &types.SettleRequest{
+			PaymentPayload: types.PaymentPayload{
+				X402Version: 2,
+				Accepted: types.PaymentRequirements{
+					Scheme:  "exact",
+					Network: "eip155:8453",
+				},
+			},
 			PaymentRequirements: types.PaymentRequirements{
 				Scheme:  "exact",
-				Network: "base",
+				Network: "eip155:8453",
 			},
 		}
 
@@ -144,8 +158,8 @@ func TestSettle(t *testing.T) {
 		if resp.Transaction != "0xabc123" {
 			t.Errorf("Expected TxHash='0xabc123', got '%s'", resp.Transaction)
 		}
-		if resp.Network != "41" {
-			t.Errorf("Expected NetworkId='41', got '%s'", resp.Network)
+		if resp.Network != "eip155:8453" {
+			t.Errorf("Expected Network='eip155:8453', got '%s'", resp.Network)
 		}
 	})
 
@@ -191,8 +205,8 @@ func TestSupported(t *testing.T) {
 			// Return supported schemes
 			resp := types.SupportedResponse{
 				Kinds: []types.SupportedKind{
-					{Scheme: "exact", Network: "base"},
-					{Scheme: "exact", Network: "ethereum"},
+					{Scheme: "exact", Network: "eip155:8453"},
+					{Scheme: "exact", Network: "eip155:1"},
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -213,8 +227,8 @@ func TestSupported(t *testing.T) {
 		if resp.Kinds[0].Scheme != "exact" {
 			t.Errorf("Expected first scheme='exact', got '%s'", resp.Kinds[0].Scheme)
 		}
-		if resp.Kinds[0].Network != "base" {
-			t.Errorf("Expected first network='base', got '%s'", resp.Kinds[0].Network)
+		if resp.Kinds[0].Network != "eip155:8453" {
+			t.Errorf("Expected first network='eip155:8453', got '%s'", resp.Kinds[0].Network)
 		}
 	})
 

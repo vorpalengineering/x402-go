@@ -12,7 +12,7 @@ import (
 
 func TestSupported(t *testing.T) {
 	// Create test config
-	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	privKey, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	testConfig := &FacilitatorConfig{
 		Server: ServerConfig{
@@ -20,18 +20,16 @@ func TestSupported(t *testing.T) {
 			Port: 4020,
 		},
 		Networks: map[string]NetworkConfig{
-			"base": {
-				RpcUrl:  "https://mainnet.base.org",
-				ChainId: "8453",
+			"eip155:8453": {
+				RpcUrl: "https://mainnet.base.org",
 			},
-			"ethereum": {
-				RpcUrl:  "https://eth.llamarpc.com",
-				ChainId: "1",
+			"eip155:1": {
+				RpcUrl: "https://eth.llamarpc.com",
 			},
 		},
 		Supported: []types.SupportedKind{
-			{Scheme: "exact", Network: "base"},
-			{Scheme: "exact", Network: "ethereum"},
+			{Scheme: "exact", Network: "eip155:8453"},
+			{Scheme: "exact", Network: "eip155:1"},
 		},
 		Transaction: TransactionConfig{
 			TimeoutSeconds: 120,
@@ -83,10 +81,10 @@ func TestSupported(t *testing.T) {
 	hasEthereumExact := false
 
 	for _, kind := range response.Kinds {
-		if kind.Scheme == "exact" && kind.Network == "base" {
+		if kind.Scheme == "exact" && kind.Network == "eip155:8453" {
 			hasBaseExact = true
 		}
-		if kind.Scheme == "exact" && kind.Network == "ethereum" {
+		if kind.Scheme == "exact" && kind.Network == "eip155:1" {
 			hasEthereumExact = true
 		}
 	}
@@ -133,10 +131,10 @@ func TestSupportedEmpty(t *testing.T) {
 func TestSupportedMultipleSchemes(t *testing.T) {
 	testConfig := &FacilitatorConfig{
 		Supported: []types.SupportedKind{
-			{Scheme: "exact", Network: "base"},
-			{Scheme: "exact", Network: "ethereum"},
-			{Scheme: "exact", Network: "optimism"},
-			{Scheme: "subscription", Network: "base"}, // Different scheme
+			{Scheme: "exact", Network: "eip155:8453"},
+			{Scheme: "exact", Network: "eip155:1"},
+			{Scheme: "exact", Network: "eip155:10"},
+			{Scheme: "subscription", Network: "eip155:8453"}, // Different scheme
 		},
 		Log: LogConfig{
 			Level: "info",
@@ -162,13 +160,11 @@ func TestSupportedMultipleSchemes(t *testing.T) {
 func TestDialRPCClients(t *testing.T) {
 	testConfig := &FacilitatorConfig{
 		Networks: map[string]NetworkConfig{
-			"base": {
-				RpcUrl:  "https://mainnet.base.org",
-				ChainId: "8453",
+			"eip155:8453": {
+				RpcUrl: "https://mainnet.base.org",
 			},
-			"ethereum": {
-				RpcUrl:  "https://eth.llamarpc.com",
-				ChainId: "1",
+			"eip155:1": {
+				RpcUrl: "https://eth.llamarpc.com",
 			},
 		},
 		Log: LogConfig{
