@@ -203,7 +203,7 @@ func TestSupported(t *testing.T) {
 
 			// Return supported schemes
 			resp := types.SupportedResponse{
-				Kinds: []types.SchemeNetworkPair{
+				Kinds: []types.SupportedKind{
 					{Scheme: "exact", Network: "base"},
 					{Scheme: "exact", Network: "ethereum"},
 				},
@@ -234,7 +234,7 @@ func TestSupported(t *testing.T) {
 	t.Run("empty supported list", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			resp := types.SupportedResponse{
-				Kinds: []types.SchemeNetworkPair{},
+				Kinds: []types.SupportedKind{},
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(resp)

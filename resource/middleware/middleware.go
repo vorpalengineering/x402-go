@@ -63,7 +63,7 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 		// Check if payment is valid
 		if !verifyResp.IsValid {
 			// Payment is invalid, return 402 with reason
-			response := types.PaymentRequiredResponse{
+			response := types.PaymentRequired{
 				X402Version: 1,
 				Accepts:     []types.PaymentRequirements{requirements},
 				Error:       verifyResp.InvalidReason,
@@ -164,7 +164,7 @@ func (m *X402Middleware) getRequirements(path string) types.PaymentRequirements 
 
 func (m *X402Middleware) sendPaymentRequired(ctx *gin.Context, path string) {
 	requirements := m.getRequirements(path)
-	response := types.PaymentRequiredResponse{
+	response := types.PaymentRequired{
 		X402Version: 1,
 		Accepts:     []types.PaymentRequirements{requirements},
 	}

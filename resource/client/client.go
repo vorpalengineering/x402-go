@@ -72,7 +72,7 @@ func (c *Client) CheckForPaymentRequired(
 		return nil, nil, fmt.Errorf("failed to read 402 response: %w", err)
 	}
 
-	var paymentResp types.PaymentRequiredResponse
+	var paymentResp types.PaymentRequired
 	if err := json.Unmarshal(respBody, &paymentResp); err != nil {
 		return nil, nil, fmt.Errorf("failed to parse payment requirements: %w", err)
 	}
