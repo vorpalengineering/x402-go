@@ -9,66 +9,79 @@ import (
 // Client/Facilitator types
 
 type VerifyRequest struct {
-	X402Version         int                 `json:"x402Version"`
-	PaymentHeader       string              `json:"paymentHeader"` // Raw base64 encoded header
+	PaymentPayload      PaymentPayload      `json:"paymentPayload"`
 	PaymentRequirements PaymentRequirements `json:"paymentRequirements"`
 }
 
 type VerifyResponse struct {
 	IsValid       bool   `json:"isValid"`
 	InvalidReason string `json:"invalidReason,omitempty"`
+	Payer         string `json:"payer,omitempty"`
 }
 
 type SettleRequest struct {
-	X402Version         int                 `json:"x402Version"`
-	PaymentHeader       string              `json:"paymentHeader"` // Raw base64 encoded header
+	PaymentPayload      PaymentPayload      `json:"paymentPayload"`
 	PaymentRequirements PaymentRequirements `json:"paymentRequirements"`
 }
 
 type SettleResponse struct {
 	Success     bool   `json:"success"`
 	ErrorReason string `json:"errorReason,omitempty"`
-	Transaction string `json:"transaction,omitempty"`
-	Network     string `json:"network,omitempty"`
 	Payer       string `json:"payer,omitempty"`
+	Transaction string `json:"transaction"`
+	Network     string `json:"network"`
 }
 
-type SchemeNetworkPair struct {
-	Scheme  string `json:"scheme" yaml:"scheme"`
-	Network string `json:"network" yaml:"network"`
+type SupportedKind struct {
+	X402Version int            `json:"x402Version"`
+	Scheme      string         `json:"scheme" yaml:"scheme"`
+	Network     string         `json:"network" yaml:"network"`
+	Extra       map[string]any `json:"extra,omitempty"`
 }
 
 type SupportedResponse struct {
-	Kinds []SchemeNetworkPair `json:"kinds"`
+	Kinds      []SupportedKind     `json:"kinds"`
+	Extensions []string            `json:"extensions"`
+	Signers    map[string][]string `json:"signers"`
 }
 
 // Payment types
 
-type PaymentRequiredResponse struct {
+type PaymentRequired struct {
 	X402Version int                   `json:"x402Version"`
-	Accepts     []PaymentRequirements `json:"accepts"`
 	Error       string                `json:"error,omitempty"`
+	Resource    *ResourceInfo         `json:"resource,omitempty"`
+	Accepts     []PaymentRequirements `json:"accepts"`
+	Extensions  map[string]Extension  `json:"extensions,omitempty"`
 }
 
 type PaymentRequirements struct {
 	Scheme            string         `json:"scheme" yaml:"scheme"`
 	Network           string         `json:"network" yaml:"network"`
-	MaxAmountRequired string         `json:"maxAmountRequired" yaml:"max_amount_required"`
-	Resource          string         `json:"resource" yaml:"resource"`
-	Description       string         `json:"description" yaml:"description"`
-	MimeType          string         `json:"mimeType" yaml:"mime_type"`
-	OutputSchema      map[string]any `json:"outputSchema,omitempty" yaml:"output_scheme,omitempty"`
+	Amount            string         `json:"amount" yaml:"amount"`
+	Asset             string         `json:"asset" yaml:"asset"`
 	PayTo             string         `json:"payTo" yaml:"pay_to"`
 	MaxTimeoutSeconds int            `json:"maxTimeoutSeconds" yaml:"max_timeout_seconds"`
-	Asset             string         `json:"asset" yaml:"asset"`
 	Extra             map[string]any `json:"extra,omitempty" yaml:"extra,omitempty"`
 }
 
+type ResourceInfo struct {
+	URL         string `json:"url"`
+	Description string `json:"description,omitempty"`
+	MimeType    string `json:"mimeType,omitempty"`
+}
+
+type Extension struct {
+	Info   map[string]any `json:"info"`
+	Schema map[string]any `json:"schema"`
+}
+
 type PaymentPayload struct {
-	X402Version int            `json:"x402Version"`
-	Scheme      string         `json:"scheme"`
-	Network     string         `json:"network"`
-	Payload     map[string]any `json:"payload"`
+	X402Version int                 `json:"x402Version"`
+	Resource    *ResourceInfo       `json:"resource,omitempty"`
+	Accepted    PaymentRequirements `json:"accepted"`
+	Payload     map[string]any      `json:"payload"`
+	Extensions  map[string]any      `json:"extensions,omitempty"`
 }
 
 type ExactEVMSchemePayload struct {
