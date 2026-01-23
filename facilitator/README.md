@@ -1,11 +1,11 @@
 # x402 Facilitator
 
-The facilitator service provides payment verification and settlement for the x402 protocol. It acts as a trusted intermediary that validates payment proofs and executes on-chain settlements.
+The facilitator service provides payment verification and on-chain settlement for the x402 protocol (v2). It validates EIP-3009 payment authorizations and executes `TransferWithAuthorization` transactions.
 
 ## Prerequisites
 
 - Go 1.21 or later
-- Access to blockchain RPC endpoints (e.g., Base, Ethereum)
+- Access to blockchain RPC endpoints
 - A funded Ethereum wallet (private key) for executing settlements
 
 ## Quick Start
@@ -18,224 +18,190 @@ The facilitator requires a private key for signing and executing on-chain transa
 export X402_FACILITATOR_PRIVATE_KEY=0x1234567890abcdef...
 ```
 
-**Security Note**: Never commit your private key to version control. Always use environment variables or secure secret management.
+**Security Note**: Never commit your private key to version control. Use environment variables or a secure secret manager.
 
 ### 2. Configure the Facilitator
 
-Copy the example configuration file:
+Copy the example configuration:
 
 ```bash
-cp config.facilitator.example.yaml config.facilitator.yaml
+cp facilitator/config.example.yaml facilitator/config.yaml
 ```
 
-Edit `config.facilitator.yaml` with your settings. See [Configuration](#configuration) for details.
+Edit `facilitator/config.yaml` with your settings. See [Configuration](#configuration) below.
 
 ### 3. Run the Service
 
-Run with default config (looks for `config.facilitator.yaml` in the current directory):
-
 ```bash
+# Uses facilitator/config.yaml by default
 go run ./cmd/facilitator
+
+# Or specify a custom config path
+go run ./cmd/facilitator --config=path/to/config.yaml
 ```
 
-Or specify a custom config path:
+The service starts on the configured port (default: 4020).
 
-```bash
-go run ./cmd/facilitator --config=path/to/config.facilitator.yaml
-```
+## Configuration
 
-The service will start on the configured port (default: 8080).
-
-## YAML Configuration
-
-The facilitator uses a YAML configuration file. Here's a detailed explanation of each section:
-
-### Server Configuration
+The facilitator uses a YAML config file:
 
 ```yaml
 server:
-  host: "0.0.0.0"  # Listen address (0.0.0.0 for all interfaces)
-  port: 8080        # HTTP server port
-```
+  host: "0.0.0.0"
+  port: 4020
 
-### Network Configuration
-
-Define RPC endpoints for each blockchain network you want to support:
-
-```yaml
+# Networks use CAIP-2 identifiers (namespace:reference)
 networks:
-  base:
+  eip155:8453:
     rpc_url: "https://mainnet.base.org"
-    chain_id: 8453
-  ethereum:
+  eip155:1:
     rpc_url: "https://eth.llamarpc.com"
-    chain_id: 1
+
+# Supported scheme-network combinations
+supported:
+  - scheme: "exact"
+    network: "eip155:8453"
+  - scheme: "exact"
+    network: "eip155:1"
+
+transaction:
+  timeout_seconds: 120
+  max_gas_price: "100000000000"  # 100 gwei in wei
+
+log:
+  level: "info"  # debug, info, warn, error
 ```
 
-You can add additional networks as needed. Each network requires:
-- `rpc_url`: HTTP(S) endpoint for the blockchain RPC
-- `chain_id`: Network chain ID (e.g., 1 for Ethereum mainnet, 8453 for Base)
+### Networks
+
+Each network requires a CAIP-2 identifier as the key and an RPC URL:
+
+| Network | CAIP-2 ID |
+|---------|-----------|
+| Ethereum mainnet | `eip155:1` |
+| Base | `eip155:8453` |
+| Base Sepolia | `eip155:84532` |
+| Optimism | `eip155:10` |
 
 ### Supported Schemes
 
-List all scheme-network combinations your facilitator will accept:
-
-```yaml
-supported:
-  - scheme: "exact"
-    network: "base"
-  - scheme: "exact"
-    network: "ethereum"
-```
-
-Only requests matching these combinations will be processed. Others will be rejected.
-
-### Transaction Settings
-
-```yaml
-transaction:
-  timeout_seconds: 120              # Max time to wait for tx confirmation
-  max_gas_price: "100000000000"     # Max gas price in wei (100 gwei)
-```
-
-- `timeout_seconds`: How long to wait for transaction confirmation before timing out
-- `max_gas_price`: Maximum gas price you're willing to pay (prevents excessive fees)
-
-### Logging
-
-```yaml
-log:
-  level: "info"  # Options: debug, info, warn, error
-```
-
-- `debug`: Verbose logging for development
-- `info`: Standard operational logging (recommended for production)
-- `warn`: Only warnings and errors
-- `error`: Only errors
+Only requests matching a configured scheme-network pair are processed. Currently supported schemes:
+- `exact` — Fixed-amount EIP-3009 TransferWithAuthorization
 
 ## API Endpoints
 
-The facilitator exposes the following HTTP endpoints:
-
 ### `GET /supported`
 
-Returns the list of supported scheme-network combinations.
+Returns supported configurations, extensions, and signer addresses.
 
-**Response**:
+**Response:**
 ```json
 {
-  "supported": [
-    {"scheme": "exact", "network": "base"},
-    {"scheme": "exact", "network": "ethereum"}
-  ]
+  "kinds": [
+    {"x402Version": 2, "scheme": "exact", "network": "eip155:8453"},
+    {"x402Version": 2, "scheme": "exact", "network": "eip155:1"}
+  ],
+  "extensions": [],
+  "signers": {
+    "eip155:8453": ["0xYourSignerAddress"],
+    "eip155:1": ["0xYourSignerAddress"]
+  }
 }
 ```
 
 ### `POST /verify`
 
-Verifies a payment payload against the provided requirements.
+Verifies a payment payload against requirements.
 
-**Request**:
+**Request:**
 ```json
 {
-  "x402_version": 1,
-  "payment_header": "base64EncodedPaymentHeader",
-  "payment_requirements": {
+  "paymentPayload": {
+    "x402Version": 2,
+    "accepted": {
+      "scheme": "exact",
+      "network": "eip155:8453",
+      "amount": "1000000",
+      "payTo": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+    },
+    "payload": {
+      "signature": "0x...",
+      "authorization": {
+        "from": "0x...",
+        "to": "0x...",
+        "value": "1000000",
+        "validAfter": 1700000000,
+        "validBefore": 1700003600,
+        "nonce": "0x..."
+      }
+    }
+  },
+  "paymentRequirements": {
     "scheme": "exact",
-    "network": "base",
-    "max_amount_required": "1000000",
-    "pay_to": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+    "network": "eip155:8453",
+    "amount": "1000000",
+    "payTo": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
     "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
   }
 }
 ```
 
-**Response**:
+**Response:**
 ```json
 {
-  "is_valid": true,
-  "reason": ""
+  "isValid": true,
+  "payer": "0xPayerAddress"
 }
 ```
 
 ### `POST /settle`
 
-Executes the payment on-chain and returns the transaction hash.
+Executes the payment on-chain via `TransferWithAuthorization`.
 
-**Request**:
-```json
-{
-  "x402_version": 1,
-  "payment_header": "base64EncodedPaymentHeader",
-  "payment_requirements": {
-    "scheme": "exact",
-    "network": "base",
-    "max_amount_required": "1000000",
-    "pay_to": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
-    "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
-  }
-}
-```
+**Request:** Same structure as `/verify`.
 
-**Response**:
+**Response:**
 ```json
 {
   "success": true,
-  "tx_hash": "0xabc123...",
-  "error": ""
+  "transaction": "0xTransactionHash",
+  "network": "eip155:8453",
+  "payer": "0xPayerAddress"
 }
 ```
 
-## Using as a Library
+## Facilitator Client
 
-You can also use the facilitator as a library in your Go application:
+Use the client library to communicate with a facilitator from your resource server:
 
 ```go
-package main
-
 import (
-    "github.com/vorpalengineering/x402-go/facilitator"
+    "github.com/vorpalengineering/x402-go/facilitator/client"
     "github.com/vorpalengineering/x402-go/types"
 )
 
-func main() {
-    // Load configuration
-    config, err := facilitator.LoadConfig("config.facilitator.yaml")
-    if err != nil {
-        panic(err)
-    }
+c := client.NewClient("http://localhost:4020")
 
-    // Create facilitator instance
-    f, err := facilitator.NewFacilitator(config)
-    if err != nil {
-        panic(err)
-    }
+// Get supported schemes
+supported, err := c.Supported()
 
-    // Verify a payment
-    verifyReq := &types.VerifyRequest{
-        X402Version: 1,
-        PaymentHeader: "base64EncodedPaymentHeader",
-        PaymentRequirements: types.PaymentRequirements{
-            Scheme: "exact",
-            Network: "base",
-            MaxAmountRequired: "1000000",
-            PayTo: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
-            Asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        },
-    }
+// Verify a payment
+verifyResp, err := c.Verify(&types.VerifyRequest{
+    PaymentPayload:      paymentPayload,
+    PaymentRequirements: requirements,
+})
 
-    verifyResp, err := f.Verify(verifyReq)
-    if err != nil {
-        panic(err)
-    }
-
-    if verifyResp.IsValid {
-        // Payment is valid, proceed with settlement
-        settleResp, err := f.Settle(verifyReq)
-        if err != nil {
-            panic(err)
-        }
-        println("Transaction hash:", settleResp.TxHash)
-    }
-}
+// Settle a payment
+settleResp, err := c.Settle(&types.SettleRequest{
+    PaymentPayload:      paymentPayload,
+    PaymentRequirements: requirements,
+})
 ```
+
+## See Also
+
+- [x402 Specification](https://github.com/coinbase/x402)
+- [Resource Middleware](../resource/middleware) — Gin middleware that uses this facilitator
+- [Resource Client](../resource/client) — Client for accessing x402-protected resources

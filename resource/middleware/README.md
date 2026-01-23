@@ -1,21 +1,21 @@
-# X402 Middleware for Gin
+# x402 Middleware for Gin
 
-Standalone Gin middleware for x402 payment verification. This package allows you to add payment-gated access to any Gin-based API.
+Gin middleware for x402 (v2) payment verification. This package adds payment-gated access to any Gin-based API.
 
 ## Features
 
 - Drop-in Gin middleware for payment verification and settlement
-- Complete payment flow: verify → fulfill → settle → respond
+- Complete payment flow: verify, fulfill, settle, respond
 - Buffered response ensures payment before access
 - Flexible path protection using glob patterns
 - Route-specific payment requirements
-- Automatic 402 Payment Required responses
+- v2 transport headers (`PAYMENT-REQUIRED`, `PAYMENT-RESPONSE`)
 - Integration with x402 facilitator services
 
 ## Installation
 
 ```bash
-go get github.com/vorpalengineering/x402-go/middleware
+go get github.com/vorpalengineering/x402-go/resource/middleware
 ```
 
 ## Quick Start
@@ -25,7 +25,7 @@ package main
 
 import (
     "github.com/gin-gonic/gin"
-    "github.com/vorpalengineering/x402-go/middleware"
+    "github.com/vorpalengineering/x402-go/resource/middleware"
     "github.com/vorpalengineering/x402-go/types"
 )
 
@@ -33,16 +33,14 @@ func main() {
     router := gin.Default()
 
     // Configure x402 middleware
-    x402 := middleware.NewX402Middleware(&middleware.Config{
-        FacilitatorURL: "http://localhost:8080",
+    x402 := middleware.NewX402Middleware(&middleware.MiddlewareConfig{
+        FacilitatorURL: "http://localhost:4020",
         DefaultRequirements: types.PaymentRequirements{
-            Scheme:            "exact",
-            Network:           "base",
-            MaxAmountRequired: "1000000", // 1 USDC (6 decimals)
-            PayTo:             "0x123...", // Your seller address here
-            Asset:             "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
-            Description:       "API access",
-            MaxTimeoutSeconds: 120,
+            Scheme:  "exact",
+            Network: "eip155:8453",
+            Amount:  "1000000", // 1 USDC (6 decimals)
+            PayTo:   "0x123...",
+            Asset:   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
         },
         ProtectedPaths: []string{"/api/*"},
     })
@@ -55,16 +53,16 @@ func main() {
         c.JSON(200, gin.H{"data": "protected content"})
     })
 
-    router.Run(":8080")
+    router.Run(":3000")
 }
 ```
 
 ## Configuration
 
-### Config Structure
+### MiddlewareConfig Structure
 
 ```go
-type Config struct {
+type MiddlewareConfig struct {
     // FacilitatorURL is the base URL of the x402 facilitator service
     FacilitatorURL string
 
@@ -78,8 +76,11 @@ type Config struct {
     // RouteRequirements maps specific routes to custom payment requirements
     RouteRequirements map[string]types.PaymentRequirements
 
+    // RouteResources maps specific routes to ResourceInfo metadata
+    RouteResources map[string]*types.ResourceInfo
+
     // PaymentHeaderName is the HTTP header containing payment
-    // Defaults to "X-Payment"
+    // Defaults to "PAYMENT-SIGNATURE"
     PaymentHeaderName string
 }
 ```
@@ -103,13 +104,11 @@ Override default requirements for specific routes:
 ```go
 RouteRequirements: map[string]types.PaymentRequirements{
     "/api/premium": {
-        Scheme:            "exact",
-        Network:           "base",
-        MaxAmountRequired: "5000000", // 5 USDC for premium
-        PayTo:             "0x123...", // Your seller address here
-        Asset:             "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
-        Description:       "Premium API access",
-        MaxTimeoutSeconds: 120,
+        Scheme:  "exact",
+        Network: "eip155:8453",
+        Amount:  "5000000", // 5 USDC for premium
+        PayTo:   "0x123...",
+        Asset:   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     },
 }
 ```
@@ -148,17 +147,25 @@ apiGroup.Use(x402.Handler())
 
 ## Payment Flow
 
-The middleware implements a complete payment flow with verification and settlement:
+The middleware implements the full x402 v2 payment flow:
 
-1. **Request without payment** → Returns 402 with payment requirements
-2. **Request with payment** → Verifies payment with facilitator
-3. **Invalid payment** → Returns 402 with error details
-4. **Valid payment** → Handler executes (response is buffered)
-5. **Handler succeeds (2xx)** → Settles payment on-chain via facilitator
-6. **Settlement succeeds** → Sends buffered response to client
-7. **Settlement fails** → Returns error (response is not sent)
+1. **Request without payment** - Returns 402 with payment requirements and `PAYMENT-REQUIRED` header
+2. **Request with `PAYMENT-SIGNATURE` header** - Verifies payment with facilitator
+3. **Invalid payment** - Returns 402 with error details and `PAYMENT-REQUIRED` header
+4. **Valid payment** - Handler executes (response is buffered)
+5. **Handler succeeds (2xx)** - Settles payment on-chain via facilitator
+6. **Settlement succeeds** - Sends buffered response with `PAYMENT-RESPONSE` header
+7. **Settlement fails** - Returns error (buffered response is discarded)
 
-**Important:** The response is only sent to the client AFTER successful payment settlement. This ensures payment is collected before granting access to protected resources.
+The response is only sent to the client AFTER successful payment settlement.
+
+## Transport Headers
+
+| Header | Direction | Description |
+|--------|-----------|-------------|
+| `PAYMENT-SIGNATURE` | Client -> Server | Base64-encoded payment payload |
+| `PAYMENT-REQUIRED` | Server -> Client | Base64-encoded payment requirements (on 402) |
+| `PAYMENT-RESPONSE` | Server -> Client | Base64-encoded settlement response (on success) |
 
 ## Response Formats
 
@@ -166,18 +173,18 @@ The middleware implements a complete payment flow with verification and settleme
 
 ```json
 {
-  "x402Version": 1,
+  "x402Version": 2,
+  "resource": {
+    "url": "/api/data"
+  },
   "accepts": [
     {
       "scheme": "exact",
-      "network": "base",
-      "maxAmountRequired": "1000000",
-      "resource": "/api/data",
-      "description": "API access payment",
-      "mimeType": "application/json",
+      "network": "eip155:8453",
+      "amount": "1000000",
       "payTo": "0x123...",
-      "maxTimeoutSeconds": 120,
-      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "maxTimeoutSeconds": 120
     }
   ]
 }
@@ -187,7 +194,7 @@ The middleware implements a complete payment flow with verification and settleme
 
 ```json
 {
-  "x402Version": 1,
+  "x402Version": 2,
   "accepts": [...],
   "error": "insufficient amount: got 500000, required 1000000"
 }
@@ -195,52 +202,40 @@ The middleware implements a complete payment flow with verification and settleme
 
 ## Context Values
 
-The middleware sets these values in the Gin context:
-
 ### During Handler Execution (After Verification)
 
 ```go
-// Check if payment was verified
-verified, _ := c.Get("x402_payment_verified")  // bool
-
-// Get the payment header
-paymentHeader, _ := c.Get("x402_payment_header")  // string
-
-// Get payment requirements
-requirements, _ := c.Get("x402_payment_requirements")  // types.PaymentRequirements
+verified, _ := c.Get("x402_payment_verified")       // bool
+paymentHeader, _ := c.Get("x402_payment_header")    // string
+requirements, _ := c.Get("x402_payment_requirements") // types.PaymentRequirements
 ```
 
-### After Settlement (Available in Response)
+### After Settlement
 
 ```go
-// Settlement transaction hash
-txHash, _ := c.Get("x402_settlement_tx")  // string
-
-// Network where payment was settled
-network, _ := c.Get("x402_settlement_network")  // string
-
-// Payer address
-payer, _ := c.Get("x402_settlement_payer")  // string
+txHash, _ := c.Get("x402_settlement_tx")        // string
+network, _ := c.Get("x402_settlement_network")  // string (CAIP-2)
+payer, _ := c.Get("x402_settlement_payer")       // string
 ```
 
-**Note:** Settlement context values are set AFTER the handler completes but BEFORE the response is sent to the client.
+Settlement context values are set after the handler completes but before the response is sent.
 
 ## Error Handling
 
-The middleware handles errors automatically:
+| Scenario | Response |
+|----------|----------|
+| No payment header | 402 with requirements |
+| Invalid/malformed header | 400 Bad Request |
+| Payment verification fails | 402 with error |
+| Facilitator unreachable | 502 Bad Gateway |
+| Settlement fails | 502 or 402 (response discarded) |
+| Settlement succeeds | Original handler response sent |
 
-- **No payment header** → 402 with payment requirements
-- **Invalid payment** → 402 with error reason
-- **Verification failure** → 502 Bad Gateway
-- **Valid payment** → Handler executes (buffered)
-- **Settlement failure** → 502 Bad Gateway or 402 (buffered response is discarded)
-- **Settlement success** → Response sent to client
-
-**Critical:** If settlement fails, the buffered response from the handler is NOT sent to the client, ensuring no access is granted without payment.
+If settlement fails, the buffered response is discarded — no access is granted without payment.
 
 ## See Also
 
 - [x402 Specification](https://github.com/coinbase/x402)
-- [x402-go Facilitator Client](../facilitator/client)
-- [x402-go Client](../client)
-- [x402-go Facilitator](../facilitator)
+- [x402-go Facilitator](../../facilitator)
+- [x402-go Facilitator Client](../../facilitator/client)
+- [x402-go Resource Client](../client)
