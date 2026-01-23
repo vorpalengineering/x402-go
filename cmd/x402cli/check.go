@@ -7,25 +7,34 @@ import (
 	"os"
 
 	"github.com/vorpalengineering/x402-go/resource/client"
-	"github.com/vorpalengineering/x402-go/types"
 )
 
 func checkCommand() {
 	// Define flags for check command
 	checkFlags := flag.NewFlagSet("check", flag.ExitOnError)
-	var resource string
+	var resource, output, method string
 	checkFlags.StringVar(&resource, "resource", "", "URL of the resource to check (required)")
 	checkFlags.StringVar(&resource, "r", "", "URL of the resource to check (required)")
+	checkFlags.StringVar(&output, "output", "", "File path to write JSON output")
+	checkFlags.StringVar(&output, "o", "", "File path to write JSON output")
+	checkFlags.StringVar(&method, "method", "GET", "HTTP method (GET or POST)")
+	checkFlags.StringVar(&method, "m", "GET", "HTTP method (GET or POST)")
 
 	// Parse flags
 	checkFlags.Parse(os.Args[2:])
+
+	// Validate method
+	if method != "GET" && method != "POST" {
+		fmt.Fprintf(os.Stderr, "Error: --method must be GET or POST, got %s\n", method)
+		os.Exit(1)
+	}
 
 	// Validate required flags
 	if resource == "" {
 		fmt.Fprintln(os.Stderr, "Error: --resource or -r flag is required")
 		fmt.Fprintln(os.Stderr, "\nUsage:")
 		fmt.Fprintln(os.Stderr, "  x402cli check --resource <url>")
-		fmt.Fprintln(os.Stderr, "  x402cli check --r <url>")
+		fmt.Fprintln(os.Stderr, "  x402cli check -r <url>")
 		checkFlags.PrintDefaults()
 		os.Exit(1)
 	}
@@ -34,39 +43,33 @@ func checkCommand() {
 	c := client.NewClient(nil)
 
 	// Check if payment is required
-	resp, requirements, err := c.CheckForPaymentRequired("GET", resource, "", nil)
+	resp, paymentRequired, err := c.CheckForPaymentRequired(method, resource, "", nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
 
-	// Print results
-	fmt.Printf("Resource: %s\n", resource)
-	fmt.Printf("Status: %d %s\n\n", resp.StatusCode, resp.Status)
-
-	if len(requirements) > 0 {
-		fmt.Println("Payment Required (402)")
-		fmt.Println("\nAccepts:")
-		for i, req := range requirements {
-			if i > 0 {
-				fmt.Println("\n---")
-			}
-			printRequirement(&req)
-		}
-	} else if resp.StatusCode == 200 {
-		fmt.Println("✓ Resource is accessible without payment")
-	} else {
-		fmt.Printf("Resource returned status %d (not payment-protected)\n", resp.StatusCode)
-	}
-}
-
-func printRequirement(req *types.PaymentRequirements) {
-	// Pretty-print the payment requirement as JSON
-	jsonBytes, err := json.MarshalIndent(req, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error formatting requirement: %v\n", err)
+	if paymentRequired == nil {
+		fmt.Fprintf(os.Stderr, "Resource returned status %d (not payment-protected)\n", resp.StatusCode)
 		return
 	}
-	fmt.Println(string(jsonBytes))
+
+	// Marshal the PaymentRequired response to pretty JSON
+	jsonBytes, err := json.MarshalIndent(paymentRequired, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error formatting response: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Output
+	if output != "" {
+		if err := os.WriteFile(output, jsonBytes, 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "Payment requirements written to %s\n", output)
+	} else {
+		fmt.Println(string(jsonBytes))
+	}
 }

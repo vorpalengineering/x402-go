@@ -12,12 +12,18 @@ x402cli <command> [flags]
 
 ### check
 
-Check if a resource requires x402 payment.
+Check if a resource requires x402 payment. Outputs the full PaymentRequired JSON response if the resource returns 402.
 
 ```
-x402cli check --resource <url>
 x402cli check -r <url>
+x402cli check -r <url> -m POST
+x402cli check -r <url> -o requirements.json
 ```
+
+Flags:
+- `-r`, `--resource` — URL of the resource to check (required)
+- `-m`, `--method` — HTTP method, GET or POST (default: GET)
+- `-o`, `--output` — file path to write JSON output (default: stdout)
 
 ### supported
 
@@ -41,12 +47,26 @@ Flags:
 - `-p`, `--payload` — payload object as JSON or file path (required)
 - `-r`, `--requirement` — payment requirements as JSON or file path (required)
 
+### settle
+
+Settle a payment payload via a facilitator. Same interface as verify, but calls `/settle`.
+
+```
+x402cli settle -f <facilitator-url> -p <payload-json|file> -r <requirements-json|file>
+```
+
+Flags:
+- `-f`, `--facilitator` — facilitator URL (required)
+- `-p`, `--payload` — payload object as JSON or file path (required)
+- `-r`, `--requirement` — payment requirements as JSON or file path (required)
+
 ### payload
 
 Generate a payment payload with EIP-3009 authorization. Optionally signs with a private key.
 
 ```
 x402cli payload --to <address> --value <amount> [options]
+x402cli payload --req requirements.json --private-key 0x...
 ```
 
 Flags:
@@ -54,6 +74,11 @@ Flags:
 - `--value` — amount in smallest unit (required)
 - `--private-key` — hex private key for EIP-712 signing
 - `--from` — payer address (derived from key if omitted)
+- `--asset` — token contract address (required with --private-key)
+- `--name` — EIP-712 domain name (required with --private-key)
+- `--version` — EIP-712 domain version (required with --private-key)
+- `--chain-id` — chain ID (required with --private-key)
+- `--req`, `--requirements` — PaymentRequirements as JSON or file path (populates defaults)
 - `--valid-after` — unix timestamp (default: now)
 - `--valid-before` — unix timestamp (default: now + 10min)
 - `--valid-duration` — seconds, alternative to --valid-before

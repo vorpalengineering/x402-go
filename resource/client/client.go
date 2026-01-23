@@ -44,7 +44,7 @@ func (c *Client) CheckForPaymentRequired(
 	url string,
 	contentType string,
 	body []byte,
-) (*http.Response, []types.PaymentRequirements, error) {
+) (*http.Response, *types.PaymentRequired, error) {
 	// Make HTTP request
 	req, err := http.NewRequest(method, url, bytes.NewReader(body))
 	if err != nil {
@@ -60,7 +60,7 @@ func (c *Client) CheckForPaymentRequired(
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 
-	// If not 402, return response with no requirements
+	// If not 402, return response with no payment required
 	if resp.StatusCode != http.StatusPaymentRequired {
 		return resp, nil, nil
 	}
@@ -77,9 +77,7 @@ func (c *Client) CheckForPaymentRequired(
 		return nil, nil, fmt.Errorf("failed to parse payment requirements: %w", err)
 	}
 
-	// Return the 402 response and parsed requirements
-	// Note: resp.Body is closed, but caller can inspect status/headers
-	return resp, paymentResp.Accepts, nil
+	return resp, &paymentResp, nil
 }
 
 func (c *Client) GeneratePayment(requirements *types.PaymentRequirements) (string, error) {
