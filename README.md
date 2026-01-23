@@ -11,8 +11,7 @@ x402-go/
 │   └── x402cli/           # CLI tool for checking x402-protected resources
 ├── facilitator/           # Facilitator server, verification, and settlement logic
 │   ├── client/            # Client library for interacting with a facilitator
-│   ├── config.example.yaml
-│   └── config.yaml        # Your local config (gitignored)
+│   └── config.example.yaml
 ├── resource/              # Resource server components
 │   ├── client/            # Client library for accessing x402-protected resources
 │   └── middleware/        # Gin middleware for protecting resources with x402
@@ -27,42 +26,40 @@ x402-go/
 Command-line tool for checking x402-protected resources.
 
 ```bash
-# Check if a resource requires payment
-go run ./cmd/x402cli check --resource http://localhost:3000/api/data
+# Build
+go build ./cmd/x402cli
+
+# Get supported data from facilitator
+./x402cli supported --facilitator http://localhost:4020
 
 # Short flag form
-go run ./cmd/x402cli check -r http://localhost:3000/api/data
+./x402cli supported -f http://localhost:4020
 
-# Build and run
-go build ./cmd/x402cli
-./x402cli check -r http://localhost:3000/api/data
 ```
 
 **Example output:**
 ```
-Resource: http://localhost:3000/api/data
-Status: 402 Payment Required
-
-Payment Required (402)
-
-Accepts:
 {
-  "scheme": "exact",
-  "network": "eip155:8453",
-  "amount": "1000000",
-  "payTo": "0x123...",
-  "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-  "maxTimeoutSeconds": 120,
-  "extra": {
-    "name": "USDC",
-    "version": "2"
+  "kinds": [
+    {
+      "x402Version": 0,
+      "scheme": "exact",
+      "network": "eip155:84532"
+    }
+  ],
+  "extensions": [],
+  "signers": {
+    "eip155:*": [
+      "0x123..."
+    ],
+    "solana:*": []
   }
 }
 ```
 
 ### Resource Client (`resource/client`)
 
-Client library for accessing x402- s resources. Handles EIP-3009 `TransferWithAuthorization` signing.
+Client library for accessing x402-protected resources. Handles EIP-3009 `TransferWithAuthorization` signing.
 
 ```go
 import (
