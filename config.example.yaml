@@ -7,14 +7,12 @@ server:
   port: 4020
 
 # Network RPC endpoints
-# Add or remove networks as needed
+# Add or remove networks as needed using CAIP-2 format
 networks:
-  base:
+  eip155:8453:
     rpc_url: "https://mainnet.base.org"
-    chain_id: 8453
-  ethereum:
+  eip155:1:
     rpc_url: "https://eth.llamarpc.com"
-    chain_id: 1
 
 # Supported payment schemes
 # List all scheme-network combinations your facilitator supports

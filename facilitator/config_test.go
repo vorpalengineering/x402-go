@@ -18,7 +18,7 @@ func TestValidateConfig(t *testing.T) {
 				ChainId: "8453",
 			},
 		},
-		Supported: []types.SchemeNetworkPair{
+		Supported: []types.SupportedKind{
 			{Scheme: "exact", Network: "base"},
 		},
 		Transaction: TransactionConfig{
@@ -153,7 +153,7 @@ func TestValidateUndefinedNetwork(t *testing.T) {
 				ChainId: "8453",
 			},
 		},
-		Supported: []types.SchemeNetworkPair{
+		Supported: []types.SupportedKind{
 			{Scheme: "exact", Network: "ethereum"}, // Network not defined
 		},
 		Transaction: TransactionConfig{
@@ -184,7 +184,7 @@ func TestValidateEmptyScheme(t *testing.T) {
 				ChainId: "8453",
 			},
 		},
-		Supported: []types.SchemeNetworkPair{
+		Supported: []types.SupportedKind{
 			{Scheme: "", Network: "base"}, // Empty scheme
 		},
 		Transaction: TransactionConfig{

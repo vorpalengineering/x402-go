@@ -1,20 +1,24 @@
 package facilitator
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/vorpalengineering/x402-go/types"
 	"gopkg.in/yaml.v3"
 )
 
 type FacilitatorConfig struct {
-	Server      ServerConfig              `yaml:"server"`
-	Networks    map[string]NetworkConfig  `yaml:"networks"`
-	Supported   []types.SchemeNetworkPair `yaml:"supported"`
-	Transaction TransactionConfig         `yaml:"transaction"`
-	Log         LogConfig                 `yaml:"log"`
-	PrivateKey  string                    `yaml:"-"`
+	Server      ServerConfig             `yaml:"server"`
+	Networks    map[string]NetworkConfig `yaml:"networks"`
+	Supported   []types.SupportedKind    `yaml:"supported"`
+	Transaction TransactionConfig        `yaml:"transaction"`
+	Log         LogConfig                `yaml:"log"`
+	Signer      SignerConfig             `yaml:"-"`
 }
 
 type ServerConfig struct {
@@ -36,6 +40,11 @@ type LogConfig struct {
 	Level string `yaml:"level"`
 }
 
+type SignerConfig struct {
+	Address    common.Address    `yaml:"address"`
+	PrivateKey *ecdsa.PrivateKey `yaml:"-"`
+}
+
 func LoadConfig(configPath string) (*FacilitatorConfig, error) {
 	// Read config file
 	data, err := os.ReadFile(configPath)
@@ -53,6 +62,9 @@ func LoadConfig(configPath string) (*FacilitatorConfig, error) {
 	if err := loadEnvVars(&facilitatorConfig); err != nil {
 		return nil, fmt.Errorf("failed to load env vars: %w", err)
 	}
+
+	// Derive signer address
+	facilitatorConfig.Signer.Address = crypto.PubkeyToAddress(facilitatorConfig.Signer.PrivateKey.PublicKey)
 
 	// Validate config
 	if err := facilitatorConfig.Validate(); err != nil {
@@ -132,7 +144,7 @@ func (config *FacilitatorConfig) Validate() error {
 	}
 
 	// Validate private key is set
-	if config.PrivateKey == "" {
+	if config.Signer.PrivateKey == nil {
 		return fmt.Errorf("private key must be set")
 	}
 
@@ -142,11 +154,15 @@ func (config *FacilitatorConfig) Validate() error {
 func loadEnvVars(config *FacilitatorConfig) error {
 	// Load from environment variable
 	// ex: export X402_FACILITATOR_PRIVATE_KEY=0x123...
-	privateKey := os.Getenv("X402_FACILITATOR_PRIVATE_KEY")
-	if privateKey == "" {
+	privateKeyStr := os.Getenv("X402_FACILITATOR_PRIVATE_KEY")
+	if privateKeyStr == "" {
 		return fmt.Errorf("X402_FACILITATOR_PRIVATE_KEY environment variable required")
 	}
-	config.PrivateKey = privateKey
+	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(privateKeyStr, "0x"))
+	if err != nil {
+		return fmt.Errorf("failed to parse private key: %w", err)
+	}
+	config.Signer.PrivateKey = privateKey
 
 	return nil
 }
