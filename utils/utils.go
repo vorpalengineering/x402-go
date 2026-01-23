@@ -1,14 +1,18 @@
 package utils
 
 import (
+	"crypto/ecdsa"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/vorpalengineering/x402-go/types"
 )
@@ -178,4 +182,70 @@ func BuildEIP712TypedData(auth *types.ExactEVMSchemeAuthorization, requirements 
 			"nonce":       auth.Nonce,
 		},
 	}, nil
+}
+
+func SignEIP3009(auth *types.ExactEVMSchemeAuthorization, privateKey *ecdsa.PrivateKey, asset, domainName, domainVersion string, chainID int64) (string, error) {
+	// Parse addresses and values
+	fromAddr := common.HexToAddress(auth.From)
+	toAddr := common.HexToAddress(auth.To)
+	val, ok := new(big.Int).SetString(auth.Value, 10)
+	if !ok {
+		return "", fmt.Errorf("invalid value: %s", auth.Value)
+	}
+	assetAddr := common.HexToAddress(asset)
+
+	// Decode nonce
+	nonceStr := strings.TrimPrefix(auth.Nonce, "0x")
+	nonceBytes, err := hex.DecodeString(nonceStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid nonce: %w", err)
+	}
+	var nonce [32]byte
+	copy(nonce[32-len(nonceBytes):], nonceBytes)
+
+	// EIP-712 Domain Separator
+	domainTypeHash := crypto.Keccak256Hash([]byte(
+		"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
+	))
+	nameHash := crypto.Keccak256Hash([]byte(domainName))
+	versionHash := crypto.Keccak256Hash([]byte(domainVersion))
+	domainSeparator := crypto.Keccak256Hash(
+		domainTypeHash.Bytes(),
+		nameHash.Bytes(),
+		versionHash.Bytes(),
+		common.LeftPadBytes(big.NewInt(chainID).Bytes(), 32),
+		common.LeftPadBytes(assetAddr.Bytes(), 32),
+	)
+
+	// TransferWithAuthorization struct hash
+	transferTypeHash := crypto.Keccak256Hash([]byte(
+		"TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)",
+	))
+	structHash := crypto.Keccak256Hash(
+		transferTypeHash.Bytes(),
+		common.LeftPadBytes(fromAddr.Bytes(), 32),
+		common.LeftPadBytes(toAddr.Bytes(), 32),
+		common.LeftPadBytes(val.Bytes(), 32),
+		common.LeftPadBytes(big.NewInt(auth.ValidAfter).Bytes(), 32),
+		common.LeftPadBytes(big.NewInt(auth.ValidBefore).Bytes(), 32),
+		nonce[:],
+	)
+
+	// EIP-712 message hash
+	messageHash := crypto.Keccak256Hash(
+		[]byte("\x19\x01"),
+		domainSeparator.Bytes(),
+		structHash.Bytes(),
+	)
+
+	// Sign
+	sig, err := crypto.Sign(messageHash.Bytes(), privateKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign: %w", err)
+	}
+
+	// Adjust v for Ethereum (add 27)
+	sig[64] += 27
+
+	return "0x" + hex.EncodeToString(sig), nil
 }
