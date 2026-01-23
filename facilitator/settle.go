@@ -10,30 +10,20 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/vorpalengineering/x402-go/types"
 	"github.com/vorpalengineering/x402-go/utils"
 )
 
-func (f *Facilitator) settlePayment(ctx context.Context, req *types.SettleRequest) *types.SettleResponse {
-	// Decode the payment header from base64
-	paymentPayload, err := utils.DecodePaymentHeader(req.PaymentHeader)
-	if err != nil {
-		return &types.SettleResponse{
-			Success:     false,
-			ErrorReason: fmt.Sprintf("failed to decode payment header: %v", err),
-		}
-	}
-
+func (f *Facilitator) settlePayment(ctx context.Context, payload *types.PaymentPayload, requirements *types.PaymentRequirements) *types.SettleResponse {
 	// Settle based on scheme
-	switch paymentPayload.Scheme {
+	switch payload.Accepted.Scheme {
 	case "exact":
-		return f.settleExactScheme(ctx, paymentPayload, &req.PaymentRequirements)
+		return f.settleExactScheme(ctx, payload, requirements)
 	default:
 		return &types.SettleResponse{
 			Success:     false,
-			ErrorReason: fmt.Sprintf("unsupported scheme: %s", paymentPayload.Scheme),
+			ErrorReason: fmt.Sprintf("unsupported scheme: %s", payload.Accepted.Scheme),
 		}
 	}
 }
@@ -79,7 +69,7 @@ func (f *Facilitator) settleExactScheme(ctx context.Context, payload *types.Paym
 	return &types.SettleResponse{
 		Success:     true,
 		Transaction: txHash,
-		Network:     fmt.Sprintf("%d", utils.GetChainID(requirements.Network)),
+		Network:     requirements.Network,
 		Payer:       auth.From,
 	}
 }
@@ -134,17 +124,8 @@ func (f *Facilitator) sendTransferWithAuthorization(
 		return "", fmt.Errorf("failed to encode call: %v", err)
 	}
 
-	// Load facilitator's private key
-	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(f.config.PrivateKey, "0x"))
-	if err != nil {
-		return "", fmt.Errorf("failed to parse private key: %w", err)
-	}
-
-	// Get facilitator address
-	facilitatorAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
-
 	// Get nonce for facilitator address
-	nonce, err := client.PendingNonceAt(ctx, facilitatorAddr)
+	nonce, err := client.PendingNonceAt(ctx, f.config.Signer.Address)
 	if err != nil {
 		return "", fmt.Errorf("failed to get nonce: %w", err)
 	}
@@ -168,7 +149,7 @@ func (f *Facilitator) sendTransferWithAuthorization(
 	// Estimate gas
 	tokenAddress := common.HexToAddress(requirements.Asset)
 	gasLimit, err := client.EstimateGas(ctx, ethereum.CallMsg{
-		From: facilitatorAddr,
+		From: f.config.Signer.Address,
 		To:   &tokenAddress,
 		Data: callData,
 	})
@@ -187,10 +168,13 @@ func (f *Facilitator) sendTransferWithAuthorization(
 	)
 
 	// Get chain ID
-	chainID := utils.GetChainID(requirements.Network)
+	chainID, err := utils.GetChainID(requirements.Network)
+	if err != nil {
+		return "", fmt.Errorf("failed to get chain id: %w", err)
+	}
 
 	// Sign transaction
-	signedTx, err := ethtypes.SignTx(tx, ethtypes.NewEIP155Signer(chainID), privateKey)
+	signedTx, err := ethtypes.SignTx(tx, ethtypes.NewEIP155Signer(chainID), f.config.Signer.PrivateKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign transaction: %w", err)
 	}

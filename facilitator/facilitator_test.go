@@ -6,11 +6,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/vorpalengineering/x402-go/types"
 )
 
 func TestSupported(t *testing.T) {
 	// Create test config
+	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	testConfig := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
@@ -26,7 +29,7 @@ func TestSupported(t *testing.T) {
 				ChainId: "1",
 			},
 		},
-		Supported: []types.SchemeNetworkPair{
+		Supported: []types.SupportedKind{
 			{Scheme: "exact", Network: "base"},
 			{Scheme: "exact", Network: "ethereum"},
 		},
@@ -37,7 +40,10 @@ func TestSupported(t *testing.T) {
 		Log: LogConfig{
 			Level: "info",
 		},
-		PrivateKey: "0x0000000000000000000000000000000000000000000000000000000000000001",
+		Signer: SignerConfig{
+			Address:    addr,
+			PrivateKey: privKey,
+		},
 	}
 
 	// Create facilitator
@@ -97,7 +103,7 @@ func TestSupported(t *testing.T) {
 func TestSupportedEmpty(t *testing.T) {
 	// Create config with no supported schemes
 	testConfig := &FacilitatorConfig{
-		Supported: []types.SchemeNetworkPair{},
+		Supported: []types.SupportedKind{},
 		Log: LogConfig{
 			Level: "info",
 		},
@@ -126,7 +132,7 @@ func TestSupportedEmpty(t *testing.T) {
 
 func TestSupportedMultipleSchemes(t *testing.T) {
 	testConfig := &FacilitatorConfig{
-		Supported: []types.SchemeNetworkPair{
+		Supported: []types.SupportedKind{
 			{Scheme: "exact", Network: "base"},
 			{Scheme: "exact", Network: "ethereum"},
 			{Scheme: "exact", Network: "optimism"},

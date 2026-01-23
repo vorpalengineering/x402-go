@@ -16,19 +16,13 @@ import (
 	"github.com/vorpalengineering/x402-go/utils"
 )
 
-func (f *Facilitator) verifyPayment(ctx context.Context, req *types.VerifyRequest) (bool, string) {
-	// Decode the payment header from base64
-	paymentPayload, err := utils.DecodePaymentHeader(req.PaymentHeader)
-	if err != nil {
-		return false, fmt.Sprintf("failed to decode payment header: %v", err)
-	}
-
+func (f *Facilitator) verifyPayment(ctx context.Context, payload *types.PaymentPayload, requirements *types.PaymentRequirements) (bool, string) {
 	// Verify based on scheme
-	switch paymentPayload.Scheme {
+	switch payload.Accepted.Scheme {
 	case "exact":
-		return f.verifyExactScheme(ctx, paymentPayload, &req.PaymentRequirements)
+		return f.verifyExactScheme(ctx, payload, requirements)
 	default:
-		return false, fmt.Sprintf("unsupported scheme: %s", paymentPayload.Scheme)
+		return false, fmt.Sprintf("unsupported scheme: %s", requirements.Scheme)
 	}
 }
 
@@ -102,7 +96,10 @@ func (f *Facilitator) verifySignature(auth *types.ExactEVMSchemeAuthorization, p
 	}
 
 	// Step 2: Build EIP-712 typed data
-	typedData := utils.BuildEIP712TypedData(auth, requirements)
+	typedData, err := utils.BuildEIP712TypedData(auth, requirements)
+	if err != nil {
+		return false, fmt.Sprintf("failed to build EIP712 typed data: %v", err)
+	}
 
 	// Step 3: Hash the typed data according to EIP-712
 	domainSeparator, err := typedData.HashStruct("EIP712Domain", typedData.Domain.Map())
@@ -204,14 +201,14 @@ func (f *Facilitator) verifyAmount(auth *types.ExactEVMSchemeAuthorization, requ
 		return false, "invalid payment amount format"
 	}
 
-	requiredAmount, ok := new(big.Int).SetString(requirements.MaxAmountRequired, 10)
+	requiredAmount, ok := new(big.Int).SetString(requirements.Amount, 10)
 	if !ok {
 		return false, "invalid required amount format"
 	}
 
 	// Payment must be >= required amount
 	if paymentAmount.Cmp(requiredAmount) < 0 {
-		return false, fmt.Sprintf("insufficient amount: got %s, required %s", auth.Value, requirements.MaxAmountRequired)
+		return false, fmt.Sprintf("insufficient amount: got %s, required %s", auth.Value, requirements.Amount)
 	}
 
 	return true, ""

@@ -3,10 +3,13 @@ package facilitator
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/vorpalengineering/x402-go/types"
 )
 
 func TestValidateConfig(t *testing.T) {
+	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	validConfig := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
@@ -28,16 +31,21 @@ func TestValidateConfig(t *testing.T) {
 		Log: LogConfig{
 			Level: "info",
 		},
-		PrivateKey: "0x1234567890abcdef",
+		Signer: SignerConfig{
+			Address:    addr,
+			PrivateKey: privKey,
+		},
 	}
 
-	err := validConfig.Validate()
+	err = validConfig.Validate()
 	if err != nil {
 		t.Errorf("Expected valid config to pass validation, got error: %v", err)
 	}
 }
 
 func TestValidateInvalidPort(t *testing.T) {
+	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
@@ -53,16 +61,21 @@ func TestValidateInvalidPort(t *testing.T) {
 		Log: LogConfig{
 			Level: "info",
 		},
-		PrivateKey: "0x1234",
+		Signer: SignerConfig{
+			Address:    addr,
+			PrivateKey: privKey,
+		},
 	}
 
-	err := config.Validate()
+	err = config.Validate()
 	if err == nil {
 		t.Error("Expected error for invalid port, got nil")
 	}
 }
 
 func TestValidateNoNetworks(t *testing.T) {
+	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
@@ -76,16 +89,21 @@ func TestValidateNoNetworks(t *testing.T) {
 		Log: LogConfig{
 			Level: "info",
 		},
-		PrivateKey: "0x1234",
+		Signer: SignerConfig{
+			Address:    addr,
+			PrivateKey: privKey,
+		},
 	}
 
-	err := config.Validate()
+	err = config.Validate()
 	if err == nil {
 		t.Error("Expected error for no networks configured, got nil")
 	}
 }
 
 func TestValidateMissingRpcUrl(t *testing.T) {
+	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
@@ -104,16 +122,21 @@ func TestValidateMissingRpcUrl(t *testing.T) {
 		Log: LogConfig{
 			Level: "info",
 		},
-		PrivateKey: "0x1234",
+		Signer: SignerConfig{
+			Address:    addr,
+			PrivateKey: privKey,
+		},
 	}
 
-	err := config.Validate()
+	err = config.Validate()
 	if err == nil {
 		t.Error("Expected error for missing rpc_url, got nil")
 	}
 }
 
 func TestValidateMissingChainId(t *testing.T) {
+	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
@@ -132,16 +155,21 @@ func TestValidateMissingChainId(t *testing.T) {
 		Log: LogConfig{
 			Level: "info",
 		},
-		PrivateKey: "0x1234",
+		Signer: SignerConfig{
+			Address:    addr,
+			PrivateKey: privKey,
+		},
 	}
 
-	err := config.Validate()
+	err = config.Validate()
 	if err == nil {
 		t.Error("Expected error for missing chain_id, got nil")
 	}
 }
 
 func TestValidateUndefinedNetwork(t *testing.T) {
+	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
@@ -163,16 +191,21 @@ func TestValidateUndefinedNetwork(t *testing.T) {
 		Log: LogConfig{
 			Level: "info",
 		},
-		PrivateKey: "0x1234",
+		Signer: SignerConfig{
+			Address:    addr,
+			PrivateKey: privKey,
+		},
 	}
 
-	err := config.Validate()
+	err = config.Validate()
 	if err == nil {
 		t.Error("Expected error for undefined network in supported schemes, got nil")
 	}
 }
 
 func TestValidateEmptyScheme(t *testing.T) {
+	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
@@ -194,16 +227,21 @@ func TestValidateEmptyScheme(t *testing.T) {
 		Log: LogConfig{
 			Level: "info",
 		},
-		PrivateKey: "0x1234",
+		Signer: SignerConfig{
+			Address:    addr,
+			PrivateKey: privKey,
+		},
 	}
 
-	err := config.Validate()
+	err = config.Validate()
 	if err == nil {
 		t.Error("Expected error for empty scheme, got nil")
 	}
 }
 
 func TestValidateInvalidTimeout(t *testing.T) {
+	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
@@ -219,16 +257,21 @@ func TestValidateInvalidTimeout(t *testing.T) {
 		Log: LogConfig{
 			Level: "info",
 		},
-		PrivateKey: "0x1234",
+		Signer: SignerConfig{
+			Address:    addr,
+			PrivateKey: privKey,
+		},
 	}
 
-	err := config.Validate()
+	err = config.Validate()
 	if err == nil {
 		t.Error("Expected error for invalid timeout, got nil")
 	}
 }
 
 func TestValidateMissingMaxGasPrice(t *testing.T) {
+	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
@@ -244,16 +287,21 @@ func TestValidateMissingMaxGasPrice(t *testing.T) {
 		Log: LogConfig{
 			Level: "info",
 		},
-		PrivateKey: "0x1234",
+		Signer: SignerConfig{
+			Address:    addr,
+			PrivateKey: privKey,
+		},
 	}
 
-	err := config.Validate()
+	err = config.Validate()
 	if err == nil {
 		t.Error("Expected error for missing max_gas_price, got nil")
 	}
 }
 
 func TestValidateInvalidLogLevel(t *testing.T) {
+	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
@@ -269,16 +317,21 @@ func TestValidateInvalidLogLevel(t *testing.T) {
 		Log: LogConfig{
 			Level: "invalid", // Invalid
 		},
-		PrivateKey: "0x1234",
+		Signer: SignerConfig{
+			Address:    addr,
+			PrivateKey: privKey,
+		},
 	}
 
-	err := config.Validate()
+	err = config.Validate()
 	if err == nil {
 		t.Error("Expected error for invalid log level, got nil")
 	}
 }
 
 func TestValidateMissingPrivateKey(t *testing.T) {
+	privKey, err := crypto.HexToECDSA("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
 	config := &FacilitatorConfig{
 		Server: ServerConfig{
 			Host: "localhost",
@@ -294,10 +347,13 @@ func TestValidateMissingPrivateKey(t *testing.T) {
 		Log: LogConfig{
 			Level: "info",
 		},
-		PrivateKey: "", // Missing
+		Signer: SignerConfig{
+			Address:    addr,
+			PrivateKey: nil, // Missing
+		},
 	}
 
-	err := config.Validate()
+	err = config.Validate()
 	if err == nil {
 		t.Error("Expected error for missing private key, got nil")
 	}

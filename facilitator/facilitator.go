@@ -194,7 +194,7 @@ func (f *Facilitator) handleVerify(ginCtx *gin.Context) {
 	ctx := ginCtx.Request.Context()
 
 	// Verify request
-	isValid, invalidReason := f.verifyPayment(ctx, &req)
+	isValid, invalidReason := f.verifyPayment(ctx, &req.PaymentPayload, &req.PaymentRequirements)
 
 	// Craft response
 	res := types.VerifyResponse{
@@ -219,14 +219,21 @@ func (f *Facilitator) handleSettle(ginCtx *gin.Context) {
 	ctx := ginCtx.Request.Context()
 
 	// Settle request
-	resp := f.settlePayment(ctx, &req)
+	resp := f.settlePayment(ctx, &req.PaymentPayload, &req.PaymentRequirements)
 
 	ginCtx.JSON(http.StatusOK, resp)
 }
 
 func (f *Facilitator) handleSupported(ctx *gin.Context) {
 	res := types.SupportedResponse{
-		Kinds: f.config.Supported,
+		Kinds:      f.config.Supported,
+		Extensions: []string{},
+		Signers: map[string][]string{
+			"eip155:*": []string{
+				f.config.Signer.Address.String(),
+			},
+			"solana:*": []string{},
+		},
 	}
 
 	ctx.JSON(http.StatusOK, res)

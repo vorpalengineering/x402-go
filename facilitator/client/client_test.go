@@ -41,8 +41,6 @@ func TestVerify(t *testing.T) {
 
 		// Make request
 		req := &types.VerifyRequest{
-			X402Version:   1,
-			PaymentHeader: "test-header",
 			PaymentRequirements: types.PaymentRequirements{
 				Scheme:  "exact",
 				Network: "base",
@@ -73,10 +71,7 @@ func TestVerify(t *testing.T) {
 		defer server.Close()
 
 		client := NewClient(server.URL)
-		req := &types.VerifyRequest{
-			X402Version:   1,
-			PaymentHeader: "test-header",
-		}
+		req := &types.VerifyRequest{}
 
 		resp, err := client.Verify(req)
 		if err != nil {
@@ -98,10 +93,7 @@ func TestVerify(t *testing.T) {
 		defer server.Close()
 
 		client := NewClient(server.URL)
-		req := &types.VerifyRequest{
-			X402Version:   1,
-			PaymentHeader: "test-header",
-		}
+		req := &types.VerifyRequest{}
 
 		_, err := client.Verify(req)
 		if err == nil {
@@ -134,8 +126,6 @@ func TestSettle(t *testing.T) {
 
 		client := NewClient(server.URL)
 		req := &types.SettleRequest{
-			X402Version:   1,
-			PaymentHeader: "test-header",
 			PaymentRequirements: types.PaymentRequirements{
 				Scheme:  "exact",
 				Network: "base",
@@ -171,10 +161,7 @@ func TestSettle(t *testing.T) {
 		defer server.Close()
 
 		client := NewClient(server.URL)
-		req := &types.SettleRequest{
-			X402Version:   1,
-			PaymentHeader: "test-header",
-		}
+		req := &types.SettleRequest{}
 
 		resp, err := client.Settle(req)
 		if err != nil {
