@@ -25,6 +25,24 @@ Flags:
 - `-m`, `--method` — HTTP method, GET or POST (default: GET)
 - `-o`, `--output` — file path to write JSON output (default: stdout)
 
+### pay
+
+Pay for a resource by sending a request with a `PAYMENT-SIGNATURE` header. Constructs the full PaymentPayload from the inner payload and requirements, base64 encodes it, and sends it to the resource server.
+
+```
+x402cli pay -r <url> -p <payload-json|file> --req <requirements-json|file>
+x402cli pay -r <url> -p payload.json --req requirements.json -o response.txt
+```
+
+Flags:
+- `-r`, `--resource` — URL of the resource (required)
+- `-m`, `--method` — HTTP method, GET or POST (default: GET)
+- `-p`, `--payload` — inner payload as JSON or file path (required, output of `payload` command)
+- `--req`, `--requirements` — PaymentRequirements as JSON or file path (required)
+- `-o`, `--output` — file path to write response body (default: stdout)
+
+On success (200), prints the response body and decodes the `PAYMENT-RESPONSE` settlement header to stderr. On 402, prints the PaymentRequired JSON.
+
 ### supported
 
 Query a facilitator for its supported schemes, networks, and signers.

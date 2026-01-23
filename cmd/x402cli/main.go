@@ -17,6 +17,8 @@ func main() {
 	switch subcommand {
 	case "check":
 		checkCommand()
+	case "pay":
+		payCommand()
 	case "supported":
 		supportedCommand()
 	case "verify":
@@ -42,6 +44,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "Commands:")
 	fmt.Fprintln(os.Stderr, "  check       Check if a resource requires payment")
+	fmt.Fprintln(os.Stderr, "  pay         Pay for a resource with a payment payload")
 	fmt.Fprintln(os.Stderr, "  supported   Query a facilitator for supported schemes/networks")
 	fmt.Fprintln(os.Stderr, "  verify      Verify a payment payload against a facilitator")
 	fmt.Fprintln(os.Stderr, "  settle      Settle a payment payload via a facilitator")
@@ -49,7 +52,8 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  req         Generate a payment requirements object")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "Examples:")
-	fmt.Fprintln(os.Stderr, "  x402cli check --resource http://localhost:3000/api/data")
+	fmt.Fprintln(os.Stderr, "  x402cli check -r http://localhost:3000/api/data")
+	fmt.Fprintln(os.Stderr, "  x402cli pay -r http://localhost:3000/api/data -p payload.json --req requirements.json")
 	fmt.Fprintln(os.Stderr, "  x402cli supported --facilitator http://localhost:8080")
 	fmt.Fprintln(os.Stderr, "  x402cli verify -f http://localhost:8080 -p payload.json -r requirements.json")
 	fmt.Fprintln(os.Stderr, "  x402cli settle -f http://localhost:8080 -p payload.json -r requirements.json")
