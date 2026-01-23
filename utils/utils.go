@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -38,15 +39,18 @@ const EIP3009TransferWithAuthABI = `[{
 	"type": "function"
 }]`
 
-func GetChainID(network string) *big.Int {
-	switch network {
-	case "base":
-		return big.NewInt(8453)
-	case "base-sepolia":
-		return big.NewInt(84532)
-	default:
-		return big.NewInt(1) // Default to mainnet
+func GetChainID(network string) (*big.Int, error) {
+	// network string is in CAIP-2 format (e.g. "eip155:8453")
+	substrings := strings.Split(network, ":")
+	if len(substrings) != 2 {
+		return nil, fmt.Errorf("invalid CAIP-2 network string")
 	}
+	networkId := substrings[1]
+	chainId, ok := new(big.Int).SetString(networkId, 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse CAIP-2 network string: %s", network)
+	}
+	return chainId, nil
 }
 
 func DecodePaymentHeader(header string) (*types.PaymentPayload, error) {
@@ -120,13 +124,28 @@ func ExtractVRS(signatureHex string) (v uint8, r [32]byte, s [32]byte, err error
 	return v, r, s, nil
 }
 
-// TODO: add params for other tokens
-func BuildEIP712TypedData(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) apitypes.TypedData {
+func BuildEIP712TypedData(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) (*apitypes.TypedData, error) {
 	// Parse value as big.Int
 	value := new(big.Int)
 	value.SetString(auth.Value, 10)
 
-	return apitypes.TypedData{
+	// Get Chain ID
+	chainID, err := GetChainID(requirements.Network)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse chain id: %w", err)
+	}
+
+	// Get EIP712 Domain data from payment requirements extra field
+	name, ok := requirements.Extra["name"].(string)
+	if !ok || name == "" {
+		return nil, fmt.Errorf("missing EIP712 Domain name in extra field")
+	}
+	version, ok := requirements.Extra["version"].(string)
+	if !ok || version == "" {
+		return nil, fmt.Errorf("missing EIP712 Domain version in extra field")
+	}
+
+	return &apitypes.TypedData{
 		Types: apitypes.Types{
 			"EIP712Domain": []apitypes.Type{
 				{Name: "name", Type: "string"},
@@ -145,9 +164,9 @@ func BuildEIP712TypedData(auth *types.ExactEVMSchemeAuthorization, requirements 
 		},
 		PrimaryType: "TransferWithAuthorization",
 		Domain: apitypes.TypedDataDomain{
-			Name:              "USDC", // This should match the token contract
-			Version:           "2",    // USDC version
-			ChainId:           (*math.HexOrDecimal256)(GetChainID(requirements.Network)),
+			Name:              name,    // This should match the token contract
+			Version:           version, // USDC version
+			ChainId:           (*math.HexOrDecimal256)(chainID),
 			VerifyingContract: requirements.Asset,
 		},
 		Message: apitypes.TypedDataMessage{
@@ -158,5 +177,5 @@ func BuildEIP712TypedData(auth *types.ExactEVMSchemeAuthorization, requirements 
 			"validBefore": fmt.Sprintf("%d", auth.ValidBefore),
 			"nonce":       auth.Nonce,
 		},
-	}
+	}, nil
 }
