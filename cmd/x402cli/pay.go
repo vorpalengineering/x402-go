@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -16,7 +17,7 @@ import (
 func payCommand() {
 	// Define flags
 	payFlags := flag.NewFlagSet("pay", flag.ExitOnError)
-	var resource, method, payloadInput, requirementsInput, output string
+	var resource, method, payloadInput, requirementsInput, output, data string
 	payFlags.StringVar(&resource, "resource", "", "URL of the resource to pay for (required)")
 	payFlags.StringVar(&resource, "r", "", "URL of the resource to pay for (required)")
 	payFlags.StringVar(&method, "method", "GET", "HTTP method (GET or POST)")
@@ -27,6 +28,8 @@ func payCommand() {
 	payFlags.StringVar(&requirementsInput, "req", "", "PaymentRequirements as JSON or file path (required)")
 	payFlags.StringVar(&output, "output", "", "File path to write response body")
 	payFlags.StringVar(&output, "o", "", "File path to write response body")
+	payFlags.StringVar(&data, "data", "", "Request body as JSON string or file path")
+	payFlags.StringVar(&data, "d", "", "Request body as JSON string or file path")
 
 	// Parse flags
 	payFlags.Parse(os.Args[2:])
@@ -78,12 +81,20 @@ func payCommand() {
 	paymentHeader := base64.StdEncoding.EncodeToString(payloadJSON)
 
 	// Make HTTP request with PAYMENT-SIGNATURE header
-	req, err := http.NewRequest(method, resource, nil)
+	var reqBody io.Reader
+	if data != "" {
+		dataBytes := readJSONOrFile(data)
+		reqBody = bytes.NewReader(dataBytes)
+	}
+	req, err := http.NewRequest(method, resource, reqBody)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating request: %v\n", err)
 		os.Exit(1)
 	}
 	req.Header.Set("PAYMENT-SIGNATURE", paymentHeader)
+	if data != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

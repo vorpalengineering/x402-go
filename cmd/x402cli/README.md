@@ -10,6 +10,17 @@ x402cli <command> [flags]
 
 ## Commands
 
+```
+x402cli
+├── check        Check if a resource requires payment (resource server)
+├── pay          Pay for a resource with a payment payload (resource server)
+├── supported    Query facilitator for supported schemes/networks
+├── verify       Verify a payment payload (facilitator)
+├── settle       Settle a payment payload (facilitator)
+├── payload      Generate a payment payload with EIP-3009 authorization
+└── req          Generate a payment requirements object
+```
+
 ### check
 
 Check if a resource requires x402 payment. Outputs the full PaymentRequired JSON response if the resource returns 402.
@@ -30,7 +41,7 @@ Flags:
 Pay for a resource by sending a request with a `PAYMENT-SIGNATURE` header. Constructs the full PaymentPayload from the inner payload and requirements, base64 encodes it, and sends it to the resource server.
 
 ```
-x402cli pay -r <url> -p <payload-json|file> --req <requirements-json|file>
+x402cli pay -r <url> -p <json|file> --req <json|file>
 x402cli pay -r <url> -p payload.json --req requirements.json -o response.txt
 ```
 
@@ -57,7 +68,7 @@ x402cli supported -f <url>
 Verify a payment payload against a facilitator. Takes a payload object and requirements object (as JSON strings or file paths).
 
 ```
-x402cli verify -f <facilitator-url> -p <payload-json|file> -r <requirements-json|file>
+x402cli verify -f <facilitator-url> -p <json|file> -r <json|file>
 ```
 
 Flags:
@@ -96,12 +107,14 @@ Flags:
 - `--name` — EIP-712 domain name (required with --private-key)
 - `--version` — EIP-712 domain version (required with --private-key)
 - `--chain-id` — chain ID (required with --private-key)
-- `--req`, `--requirements` — PaymentRequirements as JSON or file path (populates defaults)
+- `--req`, `--requirements` — PaymentRequirements as JSON or file path (see note below)
 - `--valid-after` — unix timestamp (default: now)
 - `--valid-before` — unix timestamp (default: now + 10min)
 - `--valid-duration` — seconds, alternative to --valid-before
 - `--nonce` — hex bytes32 nonce (default: random)
 - `-o`, `--output` — file path to write output (default: stdout)
+
+When `--req` is provided, the requirements object is used to populate default values for `--to` (from `payTo`), `--value` (from `amount`), `--asset`, `--name` (from `extra.name`), `--version` (from `extra.version`), and `--chain-id` (parsed from `network`). Individual flags always override values from requirements.
 
 ### req
 
