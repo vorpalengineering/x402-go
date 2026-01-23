@@ -23,6 +23,9 @@ type MiddlewareConfig struct {
 	// Routes not in this map will use DefaultRequirements
 	RouteRequirements map[string]types.PaymentRequirements
 
+	// RouteResources maps a specific route to its ResourceInfo
+	RouteResources map[string]*types.ResourceInfo
+
 	// PaymentHeaderName is the name of the HTTP header containing the payment
 	// Defaults to "X-Payment" if not specified
 	PaymentHeaderName string
@@ -67,7 +70,7 @@ func validatePaymentRequirements(req *types.PaymentRequirements) error {
 	if req.Network == "" {
 		return errors.New("network is required")
 	}
-	if req.MaxAmountRequired == "" {
+	if req.Amount == "" {
 		return errors.New("max amount required is required")
 	}
 	if req.PayTo == "" {

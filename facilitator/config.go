@@ -27,8 +27,7 @@ type ServerConfig struct {
 }
 
 type NetworkConfig struct {
-	RpcUrl  string `yaml:"rpc_url"`
-	ChainId string `yaml:"chain_id"`
+	RpcUrl string `yaml:"rpc_url"`
 }
 
 type TransactionConfig struct {
@@ -105,9 +104,6 @@ func (config *FacilitatorConfig) Validate() error {
 	for network, netCfg := range config.Networks {
 		if netCfg.RpcUrl == "" {
 			return fmt.Errorf("network %s missing rpc_url", network)
-		}
-		if netCfg.ChainId == "" {
-			return fmt.Errorf("network %s missing chain_id", network)
 		}
 	}
 
