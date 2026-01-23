@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,6 +38,8 @@ func main() {
 		verifyCommand()
 	case "payload":
 		payloadCommand()
+	case "requirements", "req":
+		requirementsCommand()
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", subcommand)
 		printUsage()
@@ -216,6 +219,8 @@ func payloadCommand() {
 	payloadFlags := flag.NewFlagSet("payload", flag.ExitOnError)
 	var output, privateKeyHex, from, to, value, nonce string
 	var validAfter, validBefore, validDuration int64
+	var asset, domainName, domainVersion string
+	var chainID int64
 	payloadFlags.StringVar(&output, "output", "", "File path to write JSON output")
 	payloadFlags.StringVar(&output, "o", "", "File path to write JSON output")
 	payloadFlags.StringVar(&privateKeyHex, "private-key", "", "Hex-encoded private key for signing")
@@ -226,9 +231,54 @@ func payloadCommand() {
 	payloadFlags.Int64Var(&validBefore, "valid-before", 0, "Unix timestamp for validity end (default: now + 10min)")
 	payloadFlags.Int64Var(&validDuration, "valid-duration", 0, "Validity duration in seconds (alternative to --valid-before)")
 	payloadFlags.StringVar(&nonce, "nonce", "", "Hex-encoded bytes32 nonce (default: random)")
+	payloadFlags.StringVar(&asset, "asset", "", "Token contract address (required with --private-key)")
+	payloadFlags.StringVar(&domainName, "name", "", "EIP-712 domain name (required with --private-key)")
+	payloadFlags.StringVar(&domainVersion, "version", "", "EIP-712 domain version (required with --private-key)")
+	payloadFlags.Int64Var(&chainID, "chain-id", 0, "Chain ID (required with --private-key)")
+	var requirementsInput string
+	payloadFlags.StringVar(&requirementsInput, "requirements", "", "PaymentRequirements as JSON or file path")
+	payloadFlags.StringVar(&requirementsInput, "req", "", "PaymentRequirements as JSON or file path")
 
 	// Parse flags
 	payloadFlags.Parse(os.Args[2:])
+
+	// Apply requirements as defaults (individual flags override)
+	if requirementsInput != "" {
+		reqData := readJSONOrFile(requirementsInput)
+		var req types.PaymentRequirements
+		if err := json.Unmarshal(reqData, &req); err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing requirements JSON: %v\n", err)
+			os.Exit(1)
+		}
+		if to == "" && req.PayTo != "" {
+			to = req.PayTo
+		}
+		if value == "" && req.Amount != "" {
+			value = req.Amount
+		}
+		if asset == "" && req.Asset != "" {
+			asset = req.Asset
+		}
+		if domainName == "" {
+			if name, ok := req.Extra["name"].(string); ok && name != "" {
+				domainName = name
+			}
+		}
+		if domainVersion == "" {
+			if ver, ok := req.Extra["version"].(string); ok && ver != "" {
+				domainVersion = ver
+			}
+		}
+		if chainID == 0 && req.Network != "" {
+			// Parse chain ID from CAIP-2 format (e.g. "eip155:84532")
+			parts := strings.Split(req.Network, ":")
+			if len(parts) == 2 {
+				if id, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
+					chainID = id
+				}
+			}
+		}
+	}
 
 	// Validate required flags
 	if to == "" || value == "" {
@@ -242,6 +292,10 @@ func payloadCommand() {
 	// Resolve private key and from address
 	var privateKey *ecdsa.PrivateKey
 	if privateKeyHex != "" {
+		if asset == "" || domainName == "" || domainVersion == "" || chainID == 0 {
+			fmt.Fprintln(os.Stderr, "Error: --asset, --name, --version, and --chain-id are required when --private-key is provided")
+			os.Exit(1)
+		}
 		pk, err := crypto.HexToECDSA(strings.TrimPrefix(privateKeyHex, "0x"))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error parsing private key: %v\n", err)
@@ -290,7 +344,7 @@ func payloadCommand() {
 	// Sign if private key is provided and from is set
 	signature := "0x" + strings.Repeat("00", 65)
 	if privateKey != nil && from != "" {
-		sig, err := signEIP3009(&auth, privateKey)
+		sig, err := signEIP3009(&auth, privateKey, asset, domainName, domainVersion, chainID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: signing failed: %v (using placeholder)\n", err)
 		} else {
@@ -302,7 +356,7 @@ func payloadCommand() {
 	const (
 		defaultScheme  = "exact"
 		defaultNetwork = "eip155:84532"
-		defaultAsset   = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+		defaultAsset   = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
 	)
 
 	// Assemble PaymentPayload
@@ -316,7 +370,7 @@ func payloadCommand() {
 			PayTo:             to,
 			MaxTimeoutSeconds: 30,
 			Extra: map[string]any{
-				"name":    "USD Coin",
+				"name":    "USDC",
 				"version": "2",
 			},
 		},
@@ -345,15 +399,66 @@ func payloadCommand() {
 	}
 }
 
-func signEIP3009(auth *types.ExactEVMSchemeAuthorization, privateKey *ecdsa.PrivateKey) (string, error) {
-	// Hardcoded EIP-712 domain values
-	const (
-		domainName    = "USD Coin"
-		domainVersion = "2"
-		chainID       = 84532
-		asset         = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
-	)
+func requirementsCommand() {
+	// Define flags
+	reqFlags := flag.NewFlagSet("requirements", flag.ExitOnError)
+	var output, scheme, network, amount, asset, payTo, extraName, extraVersion string
+	var maxTimeout int
+	reqFlags.StringVar(&output, "output", "", "File path to write JSON output")
+	reqFlags.StringVar(&output, "o", "", "File path to write JSON output")
+	reqFlags.StringVar(&scheme, "scheme", "", "Payment scheme (e.g. exact)")
+	reqFlags.StringVar(&network, "network", "", "CAIP-2 network (e.g. eip155:84532)")
+	reqFlags.StringVar(&amount, "amount", "", "Amount in smallest unit")
+	reqFlags.StringVar(&asset, "asset", "", "Token contract address")
+	reqFlags.StringVar(&payTo, "pay-to", "", "Recipient address")
+	reqFlags.IntVar(&maxTimeout, "max-timeout", 0, "Max timeout in seconds")
+	reqFlags.StringVar(&extraName, "extra-name", "", "EIP-712 domain name (e.g. USD Coin)")
+	reqFlags.StringVar(&extraVersion, "extra-version", "", "EIP-712 domain version (e.g. 2)")
 
+	// Parse flags
+	reqFlags.Parse(os.Args[2:])
+
+	// Build requirements
+	req := types.PaymentRequirements{
+		Scheme:            scheme,
+		Network:           network,
+		Amount:            amount,
+		Asset:             asset,
+		PayTo:             payTo,
+		MaxTimeoutSeconds: maxTimeout,
+	}
+
+	// Only include Extra if at least one extra field is provided
+	if extraName != "" || extraVersion != "" {
+		req.Extra = map[string]any{}
+		if extraName != "" {
+			req.Extra["name"] = extraName
+		}
+		if extraVersion != "" {
+			req.Extra["version"] = extraVersion
+		}
+	}
+
+	// Marshal to JSON
+	jsonBytes, err := json.MarshalIndent(req, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error formatting requirements: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Output
+	if output != "" {
+		if err := os.WriteFile(output, jsonBytes, 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "Requirements written to %s\n", output)
+	} else {
+		fmt.Println(string(jsonBytes))
+	}
+}
+
+func signEIP3009(auth *types.ExactEVMSchemeAuthorization, privateKey *ecdsa.PrivateKey, asset string, domainName string, domainVersion string, chainID int64) (string, error) {
 	// Parse addresses and values
 	fromAddr := common.HexToAddress(auth.From)
 	toAddr := common.HexToAddress(auth.To)
@@ -440,10 +545,12 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  supported   Query a facilitator for supported schemes/networks")
 	fmt.Fprintln(os.Stderr, "  verify      Verify a payment payload against a facilitator")
 	fmt.Fprintln(os.Stderr, "  payload     Generate a payment payload with EIP-3009 authorization")
+	fmt.Fprintln(os.Stderr, "  req         Generate a payment requirements object")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintln(os.Stderr, "  x402cli check --resource http://localhost:3000/api/data")
 	fmt.Fprintln(os.Stderr, "  x402cli supported --facilitator http://localhost:8080")
 	fmt.Fprintln(os.Stderr, "  x402cli verify -f http://localhost:8080 -p payload.json -r requirements.json")
 	fmt.Fprintln(os.Stderr, "  x402cli payload --to 0x... --value 10000 --private-key 0x...")
+	fmt.Fprintln(os.Stderr, "  x402cli req --scheme exact --network eip155:84532 --amount 10000")
 }

@@ -59,3 +59,22 @@ Flags:
 - `--valid-duration` — seconds, alternative to --valid-before
 - `--nonce` — hex bytes32 nonce (default: random)
 - `-o`, `--output` — file path to write output (default: stdout)
+
+### req
+
+Generate a payment requirements object. All field flags are optional.
+
+```
+x402cli req [options]
+```
+
+Flags:
+- `--scheme` — payment scheme (e.g. exact)
+- `--network` — CAIP-2 network (e.g. eip155:84532)
+- `--amount` — amount in smallest unit
+- `--asset` — token contract address
+- `--pay-to` — recipient address
+- `--max-timeout` — max timeout in seconds
+- `--extra-name` — EIP-712 domain name (e.g. USD Coin)
+- `--extra-version` — EIP-712 domain version (e.g. 2)
+- `-o`, `--output` — file path to write output (default: stdout)
