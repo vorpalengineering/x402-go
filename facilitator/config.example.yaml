@@ -1,5 +1,5 @@
 # x402 Facilitator Configuration
-# Copy this file to config.yaml and customize for your environment
+# Copy this file to facilitator/config.yaml and customize for your environment
 
 # Server configuration
 server:
