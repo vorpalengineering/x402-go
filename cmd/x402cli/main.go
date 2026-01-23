@@ -1,11 +1,19 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math/big"
 	"os"
+	"strings"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	facilitatorclient "github.com/vorpalengineering/x402-go/facilitator/client"
 	"github.com/vorpalengineering/x402-go/resource/client"
 	"github.com/vorpalengineering/x402-go/types"
@@ -27,6 +35,8 @@ func main() {
 		supportedCommand()
 	case "verify":
 		verifyCommand()
+	case "payload":
+		payloadCommand()
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", subcommand)
 		printUsage()
@@ -125,54 +135,50 @@ func supportedCommand() {
 func verifyCommand() {
 	// Define flags for verify command
 	verifyFlags := flag.NewFlagSet("verify", flag.ExitOnError)
-	var facilitatorURL, file, data string
+	var facilitatorURL, payloadInput, requirementInput string
 	verifyFlags.StringVar(&facilitatorURL, "facilitator", "", "URL of the facilitator service (required)")
 	verifyFlags.StringVar(&facilitatorURL, "f", "", "URL of the facilitator service (required)")
-	verifyFlags.StringVar(&file, "file", "", "Path to JSON file containing VerifyRequest")
-	verifyFlags.StringVar(&data, "data", "", "Inline JSON string containing VerifyRequest")
-	verifyFlags.StringVar(&data, "d", "", "Inline JSON string containing VerifyRequest")
+	verifyFlags.StringVar(&payloadInput, "payload", "", "Payload object as JSON string or file path (required)")
+	verifyFlags.StringVar(&payloadInput, "p", "", "Payload object as JSON string or file path (required)")
+	verifyFlags.StringVar(&requirementInput, "requirement", "", "PaymentRequirements as JSON string or file path (required)")
+	verifyFlags.StringVar(&requirementInput, "r", "", "PaymentRequirements as JSON string or file path (required)")
 
 	// Parse flags
 	verifyFlags.Parse(os.Args[2:])
 
 	// Validate required flags
-	if facilitatorURL == "" {
-		fmt.Fprintln(os.Stderr, "Error: --facilitator or -f flag is required")
+	if facilitatorURL == "" || payloadInput == "" || requirementInput == "" {
+		fmt.Fprintln(os.Stderr, "Error: --facilitator, --payload, and --requirement flags are all required")
 		fmt.Fprintln(os.Stderr, "\nUsage:")
-		fmt.Fprintln(os.Stderr, "  x402cli verify --facilitator <url> --file <path>")
-		fmt.Fprintln(os.Stderr, "  x402cli verify -f <url> -d '<json>'")
+		fmt.Fprintln(os.Stderr, "  x402cli verify -f <url> -p <json|file> -r <json|file>")
 		verifyFlags.PrintDefaults()
 		os.Exit(1)
 	}
 
-	if file == "" && data == "" {
-		fmt.Fprintln(os.Stderr, "Error: either --file or --data/-d is required")
-		verifyFlags.PrintDefaults()
-		os.Exit(1)
-	}
-	if file != "" && data != "" {
-		fmt.Fprintln(os.Stderr, "Error: --file and --data/-d are mutually exclusive")
+	// Parse payload (JSON string or file path)
+	payloadData := readJSONOrFile(payloadInput)
+	var payloadMap map[string]any
+	if err := json.Unmarshal(payloadData, &payloadMap); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing payload JSON: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Read request JSON
-	var jsonData []byte
-	if file != "" {
-		var err error
-		jsonData, err = os.ReadFile(file)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
-			os.Exit(1)
-		}
-	} else {
-		jsonData = []byte(data)
+	// Parse requirements (JSON string or file path)
+	requirementData := readJSONOrFile(requirementInput)
+	var requirements types.PaymentRequirements
+	if err := json.Unmarshal(requirementData, &requirements); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing requirement JSON: %v\n", err)
+		os.Exit(1)
 	}
 
-	// Unmarshal into VerifyRequest
-	var req types.VerifyRequest
-	if err := json.Unmarshal(jsonData, &req); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing JSON: %v\n", err)
-		os.Exit(1)
+	// Construct VerifyRequest
+	req := types.VerifyRequest{
+		PaymentPayload: types.PaymentPayload{
+			X402Version: 2,
+			Accepted:    requirements,
+			Payload:     payloadMap,
+		},
+		PaymentRequirements: requirements,
 	}
 
 	// Call facilitator /verify
@@ -190,6 +196,227 @@ func verifyCommand() {
 		os.Exit(1)
 	}
 	fmt.Println(string(jsonBytes))
+}
+
+// readJSONOrFile returns JSON bytes from either an inline JSON string or a file path.
+func readJSONOrFile(input string) []byte {
+	if strings.HasPrefix(strings.TrimSpace(input), "{") {
+		return []byte(input)
+	}
+	data, err := os.ReadFile(input)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading file %s: %v\n", input, err)
+		os.Exit(1)
+	}
+	return data
+}
+
+func payloadCommand() {
+	// Define flags
+	payloadFlags := flag.NewFlagSet("payload", flag.ExitOnError)
+	var output, privateKeyHex, from, to, value, nonce string
+	var validAfter, validBefore, validDuration int64
+	payloadFlags.StringVar(&output, "output", "", "File path to write JSON output")
+	payloadFlags.StringVar(&output, "o", "", "File path to write JSON output")
+	payloadFlags.StringVar(&privateKeyHex, "private-key", "", "Hex-encoded private key for signing")
+	payloadFlags.StringVar(&from, "from", "", "Payer address (derived from private key if omitted)")
+	payloadFlags.StringVar(&to, "to", "", "Recipient address (required)")
+	payloadFlags.StringVar(&value, "value", "", "Amount in smallest unit (required)")
+	payloadFlags.Int64Var(&validAfter, "valid-after", 0, "Unix timestamp for validity start (default: now)")
+	payloadFlags.Int64Var(&validBefore, "valid-before", 0, "Unix timestamp for validity end (default: now + 10min)")
+	payloadFlags.Int64Var(&validDuration, "valid-duration", 0, "Validity duration in seconds (alternative to --valid-before)")
+	payloadFlags.StringVar(&nonce, "nonce", "", "Hex-encoded bytes32 nonce (default: random)")
+
+	// Parse flags
+	payloadFlags.Parse(os.Args[2:])
+
+	// Validate required flags
+	if to == "" || value == "" {
+		fmt.Fprintln(os.Stderr, "Error: --to and --value flags are required")
+		fmt.Fprintln(os.Stderr, "\nUsage:")
+		fmt.Fprintln(os.Stderr, "  x402cli payload --to <address> --value <amount> [options]")
+		payloadFlags.PrintDefaults()
+		os.Exit(1)
+	}
+
+	// Resolve private key and from address
+	var privateKey *ecdsa.PrivateKey
+	if privateKeyHex != "" {
+		pk, err := crypto.HexToECDSA(strings.TrimPrefix(privateKeyHex, "0x"))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing private key: %v\n", err)
+			os.Exit(1)
+		}
+		privateKey = pk
+		if from == "" {
+			from = crypto.PubkeyToAddress(pk.PublicKey).Hex()
+		}
+	}
+
+	// Resolve time window
+	now := time.Now().Unix()
+	if validAfter == 0 {
+		validAfter = now
+	}
+	if validDuration > 0 {
+		validBefore = validAfter + validDuration
+	} else if validBefore == 0 {
+		validBefore = validAfter + 600 // default 10 minutes
+	}
+
+	// Resolve nonce
+	var nonceHex string
+	if nonce != "" {
+		nonceHex = nonce
+	} else {
+		var nonceBytes [32]byte
+		if _, err := rand.Read(nonceBytes[:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error generating nonce: %v\n", err)
+			os.Exit(1)
+		}
+		nonceHex = "0x" + hex.EncodeToString(nonceBytes[:])
+	}
+
+	// Build authorization
+	auth := types.ExactEVMSchemeAuthorization{
+		From:        from,
+		To:          to,
+		Value:       value,
+		ValidAfter:  validAfter,
+		ValidBefore: validBefore,
+		Nonce:       nonceHex,
+	}
+
+	// Sign if private key is provided and from is set
+	signature := "0x" + strings.Repeat("00", 65)
+	if privateKey != nil && from != "" {
+		sig, err := signEIP3009(&auth, privateKey)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: signing failed: %v (using placeholder)\n", err)
+		} else {
+			signature = sig
+		}
+	}
+
+	// Hardcoded defaults
+	const (
+		defaultScheme  = "exact"
+		defaultNetwork = "eip155:84532"
+		defaultAsset   = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+	)
+
+	// Assemble PaymentPayload
+	payload := types.PaymentPayload{
+		X402Version: 2,
+		Accepted: types.PaymentRequirements{
+			Scheme:            defaultScheme,
+			Network:           defaultNetwork,
+			Amount:            value,
+			Asset:             defaultAsset,
+			PayTo:             to,
+			MaxTimeoutSeconds: 30,
+			Extra: map[string]any{
+				"name":    "USD Coin",
+				"version": "2",
+			},
+		},
+		Payload: map[string]any{
+			"signature":     signature,
+			"authorization": auth,
+		},
+	}
+
+	// Marshal only the inner payload (signature + authorization)
+	jsonBytes, err := json.MarshalIndent(payload.Payload, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error formatting payload: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Output
+	if output != "" {
+		if err := os.WriteFile(output, jsonBytes, 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "Payload written to %s\n", output)
+	} else {
+		fmt.Println(string(jsonBytes))
+	}
+}
+
+func signEIP3009(auth *types.ExactEVMSchemeAuthorization, privateKey *ecdsa.PrivateKey) (string, error) {
+	// Hardcoded EIP-712 domain values
+	const (
+		domainName    = "USD Coin"
+		domainVersion = "2"
+		chainID       = 84532
+		asset         = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+	)
+
+	// Parse addresses and values
+	fromAddr := common.HexToAddress(auth.From)
+	toAddr := common.HexToAddress(auth.To)
+	val, ok := new(big.Int).SetString(auth.Value, 10)
+	if !ok {
+		return "", fmt.Errorf("invalid value: %s", auth.Value)
+	}
+	assetAddr := common.HexToAddress(asset)
+
+	// Decode nonce
+	nonceStr := strings.TrimPrefix(auth.Nonce, "0x")
+	nonceBytes, err := hex.DecodeString(nonceStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid nonce: %w", err)
+	}
+	var nonce [32]byte
+	copy(nonce[32-len(nonceBytes):], nonceBytes)
+
+	// EIP-712 Domain Separator
+	domainTypeHash := crypto.Keccak256Hash([]byte(
+		"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
+	))
+	nameHash := crypto.Keccak256Hash([]byte(domainName))
+	versionHash := crypto.Keccak256Hash([]byte(domainVersion))
+	domainSeparator := crypto.Keccak256Hash(
+		domainTypeHash.Bytes(),
+		nameHash.Bytes(),
+		versionHash.Bytes(),
+		common.LeftPadBytes(big.NewInt(chainID).Bytes(), 32),
+		common.LeftPadBytes(assetAddr.Bytes(), 32),
+	)
+
+	// TransferWithAuthorization struct hash
+	transferTypeHash := crypto.Keccak256Hash([]byte(
+		"TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)",
+	))
+	structHash := crypto.Keccak256Hash(
+		transferTypeHash.Bytes(),
+		common.LeftPadBytes(fromAddr.Bytes(), 32),
+		common.LeftPadBytes(toAddr.Bytes(), 32),
+		common.LeftPadBytes(val.Bytes(), 32),
+		common.LeftPadBytes(big.NewInt(auth.ValidAfter).Bytes(), 32),
+		common.LeftPadBytes(big.NewInt(auth.ValidBefore).Bytes(), 32),
+		nonce[:],
+	)
+
+	// EIP-712 message hash
+	messageHash := crypto.Keccak256Hash(
+		[]byte("\x19\x01"),
+		domainSeparator.Bytes(),
+		structHash.Bytes(),
+	)
+
+	// Sign
+	sig, err := crypto.Sign(messageHash.Bytes(), privateKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign: %w", err)
+	}
+
+	// Adjust v for Ethereum (add 27)
+	sig[64] += 27
+
+	return "0x" + hex.EncodeToString(sig), nil
 }
 
 func printRequirement(req *types.PaymentRequirements) {
@@ -212,9 +439,11 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  check       Check if a resource requires payment")
 	fmt.Fprintln(os.Stderr, "  supported   Query a facilitator for supported schemes/networks")
 	fmt.Fprintln(os.Stderr, "  verify      Verify a payment payload against a facilitator")
+	fmt.Fprintln(os.Stderr, "  payload     Generate a payment payload with EIP-3009 authorization")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintln(os.Stderr, "  x402cli check --resource http://localhost:3000/api/data")
 	fmt.Fprintln(os.Stderr, "  x402cli supported --facilitator http://localhost:8080")
-	fmt.Fprintln(os.Stderr, "  x402cli verify -f http://localhost:8080 --file request.json")
+	fmt.Fprintln(os.Stderr, "  x402cli verify -f http://localhost:8080 -p payload.json -r requirements.json")
+	fmt.Fprintln(os.Stderr, "  x402cli payload --to 0x... --value 10000 --private-key 0x...")
 }
