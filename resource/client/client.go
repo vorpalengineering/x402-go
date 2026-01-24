@@ -44,7 +44,7 @@ func (c *Client) CheckForPaymentRequired(
 	url string,
 	contentType string,
 	body []byte,
-) (*http.Response, []types.PaymentRequirements, error) {
+) (*http.Response, *types.PaymentRequired, error) {
 	// Make HTTP request
 	req, err := http.NewRequest(method, url, bytes.NewReader(body))
 	if err != nil {
@@ -60,7 +60,7 @@ func (c *Client) CheckForPaymentRequired(
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 
-	// If not 402, return response with no requirements
+	// If not 402, return response with no payment required
 	if resp.StatusCode != http.StatusPaymentRequired {
 		return resp, nil, nil
 	}
@@ -72,14 +72,12 @@ func (c *Client) CheckForPaymentRequired(
 		return nil, nil, fmt.Errorf("failed to read 402 response: %w", err)
 	}
 
-	var paymentResp types.PaymentRequiredResponse
+	var paymentResp types.PaymentRequired
 	if err := json.Unmarshal(respBody, &paymentResp); err != nil {
 		return nil, nil, fmt.Errorf("failed to parse payment requirements: %w", err)
 	}
 
-	// Return the 402 response and parsed requirements
-	// Note: resp.Body is closed, but caller can inspect status/headers
-	return resp, paymentResp.Accepts, nil
+	return resp, &paymentResp, nil
 }
 
 func (c *Client) GeneratePayment(requirements *types.PaymentRequirements) (string, error) {
@@ -94,9 +92,9 @@ func (c *Client) GeneratePayment(requirements *types.PaymentRequirements) (strin
 	}
 
 	// Parse amount
-	value, ok := new(big.Int).SetString(requirements.MaxAmountRequired, 10)
+	value, ok := new(big.Int).SetString(requirements.Amount, 10)
 	if !ok {
-		return "", fmt.Errorf("invalid amount: %s", requirements.MaxAmountRequired)
+		return "", fmt.Errorf("invalid amount: %s", requirements.Amount)
 	}
 
 	// Parse recipient address
@@ -112,7 +110,10 @@ func (c *Client) GeneratePayment(requirements *types.PaymentRequirements) (strin
 	}
 
 	// Get chain ID for the network
-	chainID := utils.GetChainID(requirements.Network)
+	chainID, err := utils.GetChainID(requirements.Network)
+	if err != nil {
+		return "", fmt.Errorf("failed to get chain id: %s", err)
+	}
 
 	// Generate EIP-3009 authorization
 	auth, err := CreateEIP3009Authorization(
@@ -129,9 +130,8 @@ func (c *Client) GeneratePayment(requirements *types.PaymentRequirements) (strin
 
 	// Build payment payload
 	payload := types.PaymentPayload{
-		X402Version: 1,
-		Scheme:      requirements.Scheme,
-		Network:     requirements.Network,
+		X402Version: 2,
+		Accepted:    *requirements,
 		Payload: map[string]any{
 			"signature": encodeSignature(auth.V, auth.R, auth.S),
 			"authorization": types.ExactEVMSchemeAuthorization{
@@ -177,7 +177,7 @@ func (c *Client) PayForResource(
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	req.Header.Set("X-Payment", paymentHeader)
+	req.Header.Set("PAYMENT-SIGNATURE", paymentHeader)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -197,7 +197,7 @@ func encodeSignature(v uint8, r, s [32]byte) string {
 }
 
 // TODO: make this a generic function for all tokens
-func createDomainSeparator(verifyingContract common.Address, chainID *big.Int) common.Hash {
+func createDomainSeparator(verifyingContract common.Address, chainID *big.Int, name string, version string) common.Hash {
 	// EIP-712 Domain typeHash
 	// keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
 	domainTypeHash := crypto.Keccak256Hash([]byte(
@@ -205,10 +205,10 @@ func createDomainSeparator(verifyingContract common.Address, chainID *big.Int) c
 	))
 
 	// name = "USD Coin"
-	nameHash := crypto.Keccak256Hash([]byte("USDC"))
+	nameHash := crypto.Keccak256Hash([]byte(name))
 
 	// version = "2"
-	versionHash := crypto.Keccak256Hash([]byte("2"))
+	versionHash := crypto.Keccak256Hash([]byte(version))
 
 	// Encode domain separator
 	domainSeparator := crypto.Keccak256Hash(
@@ -250,7 +250,7 @@ func CreateEIP3009Authorization(
 	validBefore := big.NewInt(time.Now().Add(1 * time.Hour).Unix())
 
 	// EIP-712 Domain Separator
-	domainSeparator := createDomainSeparator(usdcContract, big.NewInt(chainID))
+	domainSeparator := createDomainSeparator(usdcContract, big.NewInt(chainID), "USDC", "2")
 
 	// Transfer With Authorization typeHash
 	// keccak256("TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)")

@@ -1,13 +1,18 @@
 package utils
 
 import (
+	"crypto/ecdsa"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/vorpalengineering/x402-go/types"
 )
@@ -38,15 +43,18 @@ const EIP3009TransferWithAuthABI = `[{
 	"type": "function"
 }]`
 
-func GetChainID(network string) *big.Int {
-	switch network {
-	case "base":
-		return big.NewInt(8453)
-	case "base-sepolia":
-		return big.NewInt(84532)
-	default:
-		return big.NewInt(1) // Default to mainnet
+func GetChainID(network string) (*big.Int, error) {
+	// network string is in CAIP-2 format (e.g. "eip155:8453")
+	substrings := strings.Split(network, ":")
+	if len(substrings) != 2 {
+		return nil, fmt.Errorf("invalid CAIP-2 network string")
 	}
+	networkId := substrings[1]
+	chainId, ok := new(big.Int).SetString(networkId, 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse CAIP-2 network string: %s", network)
+	}
+	return chainId, nil
 }
 
 func DecodePaymentHeader(header string) (*types.PaymentPayload, error) {
@@ -120,13 +128,28 @@ func ExtractVRS(signatureHex string) (v uint8, r [32]byte, s [32]byte, err error
 	return v, r, s, nil
 }
 
-// TODO: add params for other tokens
-func BuildEIP712TypedData(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) apitypes.TypedData {
+func BuildEIP712TypedData(auth *types.ExactEVMSchemeAuthorization, requirements *types.PaymentRequirements) (*apitypes.TypedData, error) {
 	// Parse value as big.Int
 	value := new(big.Int)
 	value.SetString(auth.Value, 10)
 
-	return apitypes.TypedData{
+	// Get Chain ID
+	chainID, err := GetChainID(requirements.Network)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse chain id: %w", err)
+	}
+
+	// Get EIP712 Domain data from payment requirements extra field
+	name, ok := requirements.Extra["name"].(string)
+	if !ok || name == "" {
+		return nil, fmt.Errorf("missing EIP712 Domain name in extra field")
+	}
+	version, ok := requirements.Extra["version"].(string)
+	if !ok || version == "" {
+		return nil, fmt.Errorf("missing EIP712 Domain version in extra field")
+	}
+
+	return &apitypes.TypedData{
 		Types: apitypes.Types{
 			"EIP712Domain": []apitypes.Type{
 				{Name: "name", Type: "string"},
@@ -145,9 +168,9 @@ func BuildEIP712TypedData(auth *types.ExactEVMSchemeAuthorization, requirements 
 		},
 		PrimaryType: "TransferWithAuthorization",
 		Domain: apitypes.TypedDataDomain{
-			Name:              "USDC", // This should match the token contract
-			Version:           "2",    // USDC version
-			ChainId:           (*math.HexOrDecimal256)(GetChainID(requirements.Network)),
+			Name:              name,    // This should match the token contract
+			Version:           version, // USDC version
+			ChainId:           (*math.HexOrDecimal256)(chainID),
 			VerifyingContract: requirements.Asset,
 		},
 		Message: apitypes.TypedDataMessage{
@@ -158,5 +181,71 @@ func BuildEIP712TypedData(auth *types.ExactEVMSchemeAuthorization, requirements 
 			"validBefore": fmt.Sprintf("%d", auth.ValidBefore),
 			"nonce":       auth.Nonce,
 		},
+	}, nil
+}
+
+func SignEIP3009(auth *types.ExactEVMSchemeAuthorization, privateKey *ecdsa.PrivateKey, asset, domainName, domainVersion string, chainID int64) (string, error) {
+	// Parse addresses and values
+	fromAddr := common.HexToAddress(auth.From)
+	toAddr := common.HexToAddress(auth.To)
+	val, ok := new(big.Int).SetString(auth.Value, 10)
+	if !ok {
+		return "", fmt.Errorf("invalid value: %s", auth.Value)
 	}
+	assetAddr := common.HexToAddress(asset)
+
+	// Decode nonce
+	nonceStr := strings.TrimPrefix(auth.Nonce, "0x")
+	nonceBytes, err := hex.DecodeString(nonceStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid nonce: %w", err)
+	}
+	var nonce [32]byte
+	copy(nonce[32-len(nonceBytes):], nonceBytes)
+
+	// EIP-712 Domain Separator
+	domainTypeHash := crypto.Keccak256Hash([]byte(
+		"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
+	))
+	nameHash := crypto.Keccak256Hash([]byte(domainName))
+	versionHash := crypto.Keccak256Hash([]byte(domainVersion))
+	domainSeparator := crypto.Keccak256Hash(
+		domainTypeHash.Bytes(),
+		nameHash.Bytes(),
+		versionHash.Bytes(),
+		common.LeftPadBytes(big.NewInt(chainID).Bytes(), 32),
+		common.LeftPadBytes(assetAddr.Bytes(), 32),
+	)
+
+	// TransferWithAuthorization struct hash
+	transferTypeHash := crypto.Keccak256Hash([]byte(
+		"TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)",
+	))
+	structHash := crypto.Keccak256Hash(
+		transferTypeHash.Bytes(),
+		common.LeftPadBytes(fromAddr.Bytes(), 32),
+		common.LeftPadBytes(toAddr.Bytes(), 32),
+		common.LeftPadBytes(val.Bytes(), 32),
+		common.LeftPadBytes(big.NewInt(auth.ValidAfter).Bytes(), 32),
+		common.LeftPadBytes(big.NewInt(auth.ValidBefore).Bytes(), 32),
+		nonce[:],
+	)
+
+	// EIP-712 message hash
+	messageHash := crypto.Keccak256Hash(
+		[]byte("\x19\x01"),
+		domainSeparator.Bytes(),
+		structHash.Bytes(),
+	)
+
+	// Sign
+	sig, err := crypto.Sign(messageHash.Bytes(), privateKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign: %w", err)
+	}
+
+	// Adjust v for Ethereum (add 27)
+	sig[64] += 27
+
+	return "0x" + hex.EncodeToString(sig), nil
 }

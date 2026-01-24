@@ -1,13 +1,8 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
-
-	"github.com/vorpalengineering/x402-go/resource/client"
-	"github.com/vorpalengineering/x402-go/types"
 )
 
 func main() {
@@ -22,69 +17,25 @@ func main() {
 	switch subcommand {
 	case "check":
 		checkCommand()
+	case "pay":
+		payCommand()
+	case "supported":
+		supportedCommand()
+	case "verify":
+		verifyCommand()
+	case "settle":
+		settleCommand()
+	case "payload":
+		payloadCommand()
+	case "requirements", "req":
+		requirementsCommand()
+	case "proof":
+		proofCommand()
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", subcommand)
 		printUsage()
 		os.Exit(1)
 	}
-}
-
-func checkCommand() {
-	// Define flags for check command
-	checkFlags := flag.NewFlagSet("check", flag.ExitOnError)
-	resource := checkFlags.String("resource", "", "URL of the resource to check (required)")
-
-	// Parse flags
-	checkFlags.Parse(os.Args[2:])
-
-	// Validate required flags
-	if *resource == "" {
-		fmt.Fprintln(os.Stderr, "Error: --resource flag is required")
-		fmt.Fprintln(os.Stderr, "\nUsage:")
-		fmt.Fprintln(os.Stderr, "  x402cli check --resource <url>")
-		checkFlags.PrintDefaults()
-		os.Exit(1)
-	}
-
-	// Create read-only client (no private key needed for checking)
-	c := client.NewClient(nil)
-
-	// Check if payment is required
-	resp, requirements, err := c.CheckForPaymentRequired("GET", *resource, "", nil)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	defer resp.Body.Close()
-
-	// Print results
-	fmt.Printf("Resource: %s\n", *resource)
-	fmt.Printf("Status: %d %s\n\n", resp.StatusCode, resp.Status)
-
-	if len(requirements) > 0 {
-		fmt.Println("Payment Required (402)")
-		fmt.Println("\nAccepts:")
-		for i, req := range requirements {
-			if i > 0 {
-				fmt.Println("\n---")
-			}
-			printRequirement(&req)
-		}
-	} else if resp.StatusCode == 200 {
-		fmt.Println("✓ Resource is accessible without payment")
-	} else {
-		fmt.Printf("Resource returned status %d (not payment-protected)\n", resp.StatusCode)
-	}
-}
-
-func printRequirement(req *types.PaymentRequirements) {
-	// Pretty-print the payment requirement as JSON
-	jsonBytes, err := json.MarshalIndent(req, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error formatting requirement: %v\n", err)
-		return
-	}
-	fmt.Println(string(jsonBytes))
 }
 
 func printUsage() {
@@ -94,8 +45,22 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  x402cli <command> [flags]")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "Commands:")
-	fmt.Fprintln(os.Stderr, "  check    Check if a resource requires payment")
+	fmt.Fprintln(os.Stderr, "  check       Check if a resource requires payment")
+	fmt.Fprintln(os.Stderr, "  pay         Pay for a resource with a payment payload")
+	fmt.Fprintln(os.Stderr, "  supported   Query a facilitator for supported schemes/networks")
+	fmt.Fprintln(os.Stderr, "  verify      Verify a payment payload against a facilitator")
+	fmt.Fprintln(os.Stderr, "  settle      Settle a payment payload via a facilitator")
+	fmt.Fprintln(os.Stderr, "  payload     Generate a payment payload with EIP-3009 authorization")
+	fmt.Fprintln(os.Stderr, "  req         Generate a payment requirements object")
+	fmt.Fprintln(os.Stderr, "  proof       Generate an ownership proof signature for a resource URL")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "Examples:")
-	fmt.Fprintln(os.Stderr, "  x402cli check --resource http://localhost:3000/api/data")
+	fmt.Fprintln(os.Stderr, "  x402cli check -r http://localhost:3000/api/data")
+	fmt.Fprintln(os.Stderr, "  x402cli pay -r http://localhost:3000/api/data -p payload.json --req requirements.json")
+	fmt.Fprintln(os.Stderr, "  x402cli supported --facilitator http://localhost:8080")
+	fmt.Fprintln(os.Stderr, "  x402cli verify -f http://localhost:8080 -p payload.json -r requirements.json")
+	fmt.Fprintln(os.Stderr, "  x402cli settle -f http://localhost:8080 -p payload.json -r requirements.json")
+	fmt.Fprintln(os.Stderr, "  x402cli payload --to 0x... --value 10000 --private-key 0x...")
+	fmt.Fprintln(os.Stderr, "  x402cli req --scheme exact --network eip155:84532 --amount 10000")
+	fmt.Fprintln(os.Stderr, "  x402cli proof -r https://api.example.com --private-key 0x...")
 }

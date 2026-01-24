@@ -23,9 +23,29 @@ type MiddlewareConfig struct {
 	// Routes not in this map will use DefaultRequirements
 	RouteRequirements map[string]types.PaymentRequirements
 
-	// PaymentHeaderName is the name of the HTTP header containing the payment
-	// Defaults to "X-Payment" if not specified
+	// RouteResources maps a specific route to its ResourceInfo
+	RouteResources map[string]*types.ResourceInfo
+
+	// PaymentHeaderName is the name of the HTTP header containing the payment signature
+	// Defaults to "PAYMENT-SIGNATURE" if not specified
 	PaymentHeaderName string
+
+	// MaxBufferSize is the maximum response buffer size in bytes.
+	// If the handler response exceeds this size, the request is aborted.
+	// 0 means unlimited.
+	MaxBufferSize int
+
+	// DiscoveryEnabled enables serving the /.well-known/x402 discovery endpoint
+	DiscoveryEnabled bool
+
+	// OwnershipProofs is a list of pre-generated EIP-191 signatures
+	// proving ownership of the protected resource URLs
+	OwnershipProofs []string
+
+	// Instructions is an optional markdown-formatted string containing
+	// instructions or information for users of your resources.
+	// Included in the /.well-known/x402 discovery response if non-empty.
+	Instructions string
 }
 
 func (c *MiddlewareConfig) Validate() error {
@@ -54,7 +74,7 @@ func (c *MiddlewareConfig) Validate() error {
 
 func (c *MiddlewareConfig) GetPaymentHeaderName() string {
 	if c.PaymentHeaderName == "" {
-		return "X-Payment"
+		return "PAYMENT-SIGNATURE"
 	}
 	return c.PaymentHeaderName
 }
@@ -67,7 +87,7 @@ func validatePaymentRequirements(req *types.PaymentRequirements) error {
 	if req.Network == "" {
 		return errors.New("network is required")
 	}
-	if req.MaxAmountRequired == "" {
+	if req.Amount == "" {
 		return errors.New("max amount required is required")
 	}
 	if req.PayTo == "" {

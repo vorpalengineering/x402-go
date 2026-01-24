@@ -1,54 +1,70 @@
 # x402-go
 
-Go implementation of the x402 protocol for verifiable payments.
+Go implementation of the [x402 protocol](https://github.com/coinbase/x402) (v2) for verifiable on-chain payments.
+
+## Project Structure
+
+```
+x402-go/
+├── cmd/
+│   ├── facilitator/       # Facilitator service binary
+│   └── x402cli/           # CLI tool for checking x402-protected resources
+├── facilitator/           # Facilitator server, verification, and settlement logic
+│   ├── client/            # Client library for interacting with a facilitator
+│   └── config.example.yaml
+├── resource/              # Resource server components
+│   ├── client/            # Client library for accessing x402-protected resources
+│   └── middleware/        # Gin middleware for protecting resources with x402
+├── types/                 # Shared x402 protocol types
+└── utils/                 # Shared utilities (EIP-712, CAIP-2 parsing, etc.)
+```
 
 ## Packages
 
-### CLI Tool (`/cmd/x402cli`)
+### CLI Tool (`cmd/x402cli`)
 
-Command-line tool for interacting with x402-protected resources.
+Command-line tool for checking x402-protected resources.
 
 ```bash
-# Check if a resource requires payment
-go run ./cmd/x402cli check --resource http://localhost:3000/api/data
-
-# Or build and install
+# Build
 go build ./cmd/x402cli
-./x402cli check --resource http://localhost:3000/api/data
 
-# Or install to $GOPATH/bin
-go install ./cmd/x402cli
-x402cli check --resource http://localhost:3000/api/data
+# Get supported data from facilitator
+./x402cli supported --facilitator http://localhost:4020
+
+# Short flag form
+./x402cli supported -f http://localhost:4020
+
 ```
 
 **Example output:**
 ```
-Resource: http://localhost:3000/api/data
-Status: 402 Payment Required
-
-Payment Required (402)
-
-Accepts:
 {
-  "scheme": "exact",
-  "network": "base",
-  "maxAmountRequired": "1000000",
-  "payTo": "0x123...",
-  "asset": "0x833...",
-  "resource": "/api/data",
-  "description": "API access",
-  "maxTimeoutSeconds": 120
+  "kinds": [
+    {
+      "x402Version": 0,
+      "scheme": "exact",
+      "network": "eip155:84532"
+    }
+  ],
+  "extensions": [],
+  "signers": {
+    "eip155:*": [
+      "0x123..."
+    ],
+    "solana:*": []
+  }
 }
 ```
 
-### Client (`/client`)
+### Resource Client (`resource/client`)
 
-Client library for accessing x402-protected resources with explicit payment flow control.
+Client library for accessing x402-protected resources. Handles EIP-3009 `TransferWithAuthorization` signing.
 
 ```go
 import (
     "github.com/ethereum/go-ethereum/crypto"
-    "github.com/vorpalengineering/x402-go/client"
+    "github.com/vorpalengineering/x402-go/resource/client"
 )
 
 // Load your private key
@@ -70,10 +86,9 @@ if err != nil {
 if len(requirements) > 0 {
     selected := requirements[0]
 
-    // Check balance, validate amount, etc.
-    log.Printf("Payment required: %s %s", selected.MaxAmountRequired, selected.Network)
+    log.Printf("Payment required: %s on %s", selected.Amount, selected.Network)
 
-    // Step 3: Pay for resource
+    // Step 3: Pay for resource (generates EIP-3009 authorization and sends PAYMENT-SIGNATURE header)
     resp, err = c.PayForResource("GET", "https://api.example.com/data", "", nil, &selected)
     if err != nil {
         log.Fatal(err)
@@ -85,23 +100,25 @@ defer resp.Body.Close()
 body, _ := io.ReadAll(resp.Body)
 ```
 
-### Middleware (`/middleware`)
+### Resource Middleware (`resource/middleware`)
 
-Middleware for adding x402 payment verification to any Gin-based API.
+Gin middleware for protecting API routes with x402 payment verification.
 
 ```go
-import "github.com/vorpalengineering/x402-go/middleware"
+import (
+    "github.com/vorpalengineering/x402-go/resource/middleware"
+    "github.com/vorpalengineering/x402-go/types"
+)
 
 // Configure middleware
-x402 := middleware.NewX402Middleware(&middleware.Config{
-    FacilitatorURL: "http://localhost:8080",
+x402 := middleware.NewX402Middleware(&middleware.MiddlewareConfig{
+    FacilitatorURL: "http://localhost:4020",
     DefaultRequirements: types.PaymentRequirements{
-        Scheme:            "exact",
-        Network:           "base",
-        MaxAmountRequired: "1000000",
-        PayTo:             "0x123...", // Your seller address here
-        Asset:             "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        // ... other fields
+        Scheme:  "exact",
+        Network: "eip155:8453",
+        Amount:  "1000000",
+        PayTo:   "0x123...",
+        Asset:   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     },
     ProtectedPaths: []string{"/api/*"},
 })
@@ -110,84 +127,106 @@ x402 := middleware.NewX402Middleware(&middleware.Config{
 router.Use(x402.Handler())
 ```
 
-See [middleware/README.md](./middleware/README.md) for detailed documentation.
+The middleware implements the full x402 payment flow:
+1. Returns `402` with `PAYMENT-REQUIRED` header when no payment is provided
+2. Verifies payment with the facilitator
+3. Executes the handler if payment is valid
+4. Settles payment on-chain after successful response
+5. Returns `PAYMENT-RESPONSE` header with settlement details
 
-### Facilitator (`/facilitator`)
+### Facilitator (`facilitator`)
 
-Facilitator service implementation providing payment verification and settlement.
-
-Make sure you have set your X402_FACILITATOR_PRIVATE_KEY env variable first.
+Facilitator service for payment verification and on-chain settlement.
 
 ```bash
-export X402_FACILITATOR_PRIVATE_KEY=0x123abc
-```
+# Set your facilitator's private key
+export X402_FACILITATOR_PRIVATE_KEY=0x123abc...
 
-Run the facilitator service:
-```bash
-# Copy example config first
-cp config.facilitator.example.yaml config.facilitator.yaml
-# Edit config.facilitator.yaml with your settings
+# Copy and edit config
+cp facilitator/config.example.yaml facilitator/config.yaml
 
-# Run with default config path
+# Run the facilitator (uses facilitator/config.yaml by default)
 go run ./cmd/facilitator
-
-# Or with a custom config path
-go run ./cmd/facilitator --config=path/to/config.facilitator.yaml
+go run ./cmd/facilitator --config=path/to/config.yaml
 ```
 
-The service will start on the configured port with the following endpoints:
-- `GET /supported` - Get supported scheme-network combinations
-- `POST /verify` - Verify payment payloads
-- `POST /settle` - Settle payments on-chain
+**Endpoints:**
+- `GET /supported` - Returns supported scheme/network combinations, extensions, and signer addresses
+- `POST /verify` - Verifies a payment payload against requirements
+- `POST /settle` - Settles a verified payment on-chain via EIP-3009 `TransferWithAuthorization`
 
-### Facilitator Client (`/facilitator/client`)
+**Configuration (`facilitator/config.yaml`):**
+```yaml
+server:
+  host: "0.0.0.0"
+  port: 4020
 
-Client library for interacting with x402 facilitators.
+# Networks use CAIP-2 identifiers
+networks:
+  eip155:8453:
+    rpc_url: "https://mainnet.base.org"
+  eip155:84532:
+    rpc_url: "https://sepolia.base.org"
+
+supported:
+  - scheme: "exact"
+    network: "eip155:8453"
+
+transaction:
+  timeout_seconds: 120
+  max_gas_price: "100000000000"
+
+log:
+  level: "info"
+```
+
+### Facilitator Client (`facilitator/client`)
+
+Client library for communicating with an x402 facilitator.
 
 ```go
-import "github.com/vorpalengineering/x402-go/facilitator/client"
+import (
+    "github.com/vorpalengineering/x402-go/facilitator/client"
+    "github.com/vorpalengineering/x402-go/types"
+)
 
-// Create new facilitator client
-c := client.NewClient("http://localhost:8080")
+c := client.NewClient("http://localhost:4020")
 
 // Get supported schemes
 supported, err := c.Supported()
-if err != nil {
-    log.Fatal(err)
-}
 
-// Verify Payment
-verifyReq := &types.VerifyRequest{
-    X402Version: 1,
-    PaymentHeader: "base64EncodedPaymentHeader",
+// Verify a payment
+verifyResp, err := c.Verify(&types.VerifyRequest{
+    PaymentPayload: paymentPayload,
     PaymentRequirements: types.PaymentRequirements{
-        Scheme: "exact",
-        Network: "base",
-        // ... other fields
+        Scheme:  "exact",
+        Network: "eip155:8453",
+        Amount:  "1000000",
+        PayTo:   "0x123...",
+        Asset:   "0x833...",
     },
-}
-verifyResp, err := c.Verify(verifyReq)
+})
 if verifyResp.IsValid {
-    // Payment is valid
+    // Payment is valid, payer: verifyResp.Payer
 }
 
-// Settle Payment
-settleReq := &types.SettleRequest{
-    X402Version: 1,
-    PaymentHeader: "base64EncodedPaymentHeader",
-    PaymentRequirements: types.PaymentRequirements{
-        Scheme: "exact",
-        Network: "base",
-        // ... other fields
-    },
-}
-settleResp, err := c.Settle(settleReq)
+// Settle a payment
+settleResp, err := c.Settle(&types.SettleRequest{
+    PaymentPayload:      paymentPayload,
+    PaymentRequirements: requirements,
+})
 if settleResp.Success {
-    // Payment is successful
-    fmt.Printf("Transaction hash: %s\n", settleResp.TxHash)
+    fmt.Printf("Settled: tx=%s, network=%s\n", settleResp.Transaction, settleResp.Network)
 }
 ```
 
-## x402 Protocol
+## v2 Protocol
 
-This implementation follows the [x402 specification](https://github.com/coinbase/x402) for verifiable on-chain payments.
+This implementation follows x402 protocol version 2. Key aspects:
+
+- **CAIP-2 network identifiers** (e.g., `eip155:8453` for Base, `eip155:1` for Ethereum mainnet)
+- **EIP-3009 TransferWithAuthorization** for gasless token transfers
+- **Transport headers**: `PAYMENT-SIGNATURE` (client request), `PAYMENT-REQUIRED` (402 response), `PAYMENT-RESPONSE` (success response)
+- **Payment payload** carries the accepted requirements and signed authorization as a base64-encoded JSON object
+
+See the [x402 specification](https://github.com/coinbase/x402) for full protocol details.

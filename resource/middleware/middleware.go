@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -8,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/vorpalengineering/x402-go/facilitator/client"
 	"github.com/vorpalengineering/x402-go/types"
+	"github.com/vorpalengineering/x402-go/utils"
 )
 
 type X402Middleware struct {
@@ -24,6 +27,12 @@ func NewX402Middleware(cfg *MiddlewareConfig) *X402Middleware {
 
 func (m *X402Middleware) Handler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		// Serve discovery endpoint if enabled
+		if m.config.DiscoveryEnabled && ctx.Request.URL.Path == "/.well-known/x402" {
+			m.serveDiscovery(ctx)
+			return
+		}
+
 		// Check if the current path requires payment
 		if !m.isProtectedPath(ctx.Request.URL.Path) {
 			ctx.Next()
@@ -40,13 +49,22 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 			return
 		}
 
+		// Decode payment header into PaymentPayload
+		paymentPayload, err := utils.DecodePaymentHeader(paymentHeader)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"error": "Invalid payment header: " + err.Error(),
+			})
+			ctx.Abort()
+			return
+		}
+
 		// Get payment requirements for this route
 		requirements := m.getRequirements(ctx.Request.URL.Path)
 
 		// Verify payment with facilitator
 		verifyReq := &types.VerifyRequest{
-			X402Version:         1,
-			PaymentHeader:       paymentHeader,
+			PaymentPayload:      *paymentPayload,
 			PaymentRequirements: requirements,
 		}
 
@@ -63,11 +81,12 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 		// Check if payment is valid
 		if !verifyResp.IsValid {
 			// Payment is invalid, return 402 with reason
-			response := types.PaymentRequiredResponse{
-				X402Version: 1,
+			response := types.PaymentRequired{
+				X402Version: 2,
 				Accepts:     []types.PaymentRequirements{requirements},
 				Error:       verifyResp.InvalidReason,
 			}
+			setPaymentRequiredHeader(ctx, &response)
 			ctx.JSON(http.StatusPaymentRequired, response)
 			ctx.Abort()
 			return
@@ -79,17 +98,26 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 		ctx.Set("x402_payment_requirements", requirements)
 
 		// Replace response writer with buffered version to capture response
-		buffered := newBufferedWriter(ctx.Writer)
+		buffered := newBufferedWriter(ctx.Writer, m.config.MaxBufferSize)
 		ctx.Writer = buffered
 
 		// STEP 2: Fulfill request (handler executes)
 		ctx.Next()
 
+		// Check for buffer overflow
+		if buffered.overflow {
+			log.Printf("Response exceeded max buffer size (%d bytes), aborting", m.config.MaxBufferSize)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Response too large to process payment",
+			})
+			ctx.Abort()
+			return
+		}
+
 		// STEP 3: Settle payment if handler succeeded (2xx status)
 		if buffered.Status() >= 200 && buffered.Status() < 300 {
 			settleReq := &types.SettleRequest{
-				X402Version:         1,
-				PaymentHeader:       paymentHeader,
+				PaymentPayload:      *paymentPayload,
 				PaymentRequirements: requirements,
 			}
 
@@ -116,6 +144,9 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 			ctx.Set("x402_settlement_tx", settleResp.Transaction)
 			ctx.Set("x402_settlement_network", settleResp.Network)
 			ctx.Set("x402_settlement_payer", settleResp.Payer)
+
+			// Set PAYMENT-RESPONSE header with settlement details
+			setPaymentResponseHeader(ctx, settleResp)
 
 			log.Printf("Payment settled: tx=%s, network=%s, payer=%s",
 				settleResp.Transaction, settleResp.Network, settleResp.Payer)
@@ -154,20 +185,58 @@ func (m *X402Middleware) getRequirements(path string) types.PaymentRequirements 
 		}
 	}
 
-	// Use default requirements with resource set to the path
-	requirements := m.config.DefaultRequirements
-	if requirements.Resource == "" {
-		requirements.Resource = path
-	}
-	return requirements
+	return m.config.DefaultRequirements
 }
 
 func (m *X402Middleware) sendPaymentRequired(ctx *gin.Context, path string) {
 	requirements := m.getRequirements(path)
-	response := types.PaymentRequiredResponse{
-		X402Version: 1,
-		Accepts:     []types.PaymentRequirements{requirements},
+	response := types.PaymentRequired{
+		X402Version: 2,
+		Resource: &types.ResourceInfo{
+			URL:         path,
+			Description: "",
+			MimeType:    "",
+		},
+		Accepts: []types.PaymentRequirements{requirements},
 	}
+	setPaymentRequiredHeader(ctx, &response)
 	ctx.JSON(http.StatusPaymentRequired, response)
+	ctx.Abort()
+}
+
+// setPaymentRequiredHeader encodes the PaymentRequired response as base64 JSON
+// and sets it as the PAYMENT-REQUIRED response header.
+func setPaymentRequiredHeader(ctx *gin.Context, response *types.PaymentRequired) {
+	data, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("Failed to encode PAYMENT-REQUIRED header: %v", err)
+		return
+	}
+	ctx.Header("PAYMENT-REQUIRED", base64.StdEncoding.EncodeToString(data))
+}
+
+// setPaymentResponseHeader encodes the SettleResponse as base64 JSON
+// and sets it as the PAYMENT-RESPONSE response header.
+func setPaymentResponseHeader(ctx *gin.Context, response *types.SettleResponse) {
+	data, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("Failed to encode PAYMENT-RESPONSE header: %v", err)
+		return
+	}
+	ctx.Header("PAYMENT-RESPONSE", base64.StdEncoding.EncodeToString(data))
+}
+
+func (m *X402Middleware) serveDiscovery(ctx *gin.Context) {
+	discovery := gin.H{
+		"version":   1,
+		"resources": m.config.ProtectedPaths,
+	}
+	if len(m.config.OwnershipProofs) > 0 {
+		discovery["ownershipProofs"] = m.config.OwnershipProofs
+	}
+	if m.config.Instructions != "" {
+		discovery["instructions"] = m.config.Instructions
+	}
+	ctx.JSON(http.StatusOK, discovery)
 	ctx.Abort()
 }
