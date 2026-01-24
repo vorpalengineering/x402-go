@@ -6,16 +6,21 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/vorpalengineering/x402-go/resource/client"
 	"github.com/vorpalengineering/x402-go/types"
 )
 
 func requirementsCommand() {
 	// Define flags
 	reqFlags := flag.NewFlagSet("requirements", flag.ExitOnError)
-	var output, scheme, network, amount, asset, payTo, extraName, extraVersion string
-	var maxTimeout int
+	var output, resource, scheme, network, amount, asset, payTo, extraName, extraVersion string
+	var maxTimeout, index int
 	reqFlags.StringVar(&output, "output", "", "File path to write JSON output")
 	reqFlags.StringVar(&output, "o", "", "File path to write JSON output")
+	reqFlags.StringVar(&resource, "resource", "", "URL of resource to fetch requirements from")
+	reqFlags.StringVar(&resource, "r", "", "URL of resource to fetch requirements from")
+	reqFlags.IntVar(&index, "index", 0, "Index into accepts array (default: 0)")
+	reqFlags.IntVar(&index, "i", 0, "Index into accepts array (default: 0)")
 	reqFlags.StringVar(&scheme, "scheme", "", "Payment scheme (e.g. exact)")
 	reqFlags.StringVar(&network, "network", "", "CAIP-2 network (e.g. eip155:84532)")
 	reqFlags.StringVar(&amount, "amount", "", "Amount in smallest unit")
@@ -29,18 +34,54 @@ func requirementsCommand() {
 	reqFlags.Parse(os.Args[2:])
 
 	// Build requirements
-	req := types.PaymentRequirements{
-		Scheme:            scheme,
-		Network:           network,
-		Amount:            amount,
-		Asset:             asset,
-		PayTo:             payTo,
-		MaxTimeoutSeconds: maxTimeout,
+	var req types.PaymentRequirements
+
+	if resource != "" {
+		// Fetch requirements from resource server
+		c := client.NewClient(nil)
+		resp, paymentRequired, err := c.CheckForPaymentRequired("GET", resource, "", nil)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		defer resp.Body.Close()
+
+		if paymentRequired == nil {
+			fmt.Fprintf(os.Stderr, "Error: resource returned status %d (not payment-protected)\n", resp.StatusCode)
+			os.Exit(1)
+		}
+
+		if index >= len(paymentRequired.Accepts) {
+			fmt.Fprintf(os.Stderr, "Error: index %d out of bounds (accepts array has %d entries)\n", index, len(paymentRequired.Accepts))
+			os.Exit(1)
+		}
+
+		req = paymentRequired.Accepts[index]
 	}
 
-	// Only include Extra if at least one extra field is provided
+	// Apply individual flag overrides
+	if scheme != "" {
+		req.Scheme = scheme
+	}
+	if network != "" {
+		req.Network = network
+	}
+	if amount != "" {
+		req.Amount = amount
+	}
+	if asset != "" {
+		req.Asset = asset
+	}
+	if payTo != "" {
+		req.PayTo = payTo
+	}
+	if maxTimeout != 0 {
+		req.MaxTimeoutSeconds = maxTimeout
+	}
 	if extraName != "" || extraVersion != "" {
-		req.Extra = map[string]any{}
+		if req.Extra == nil {
+			req.Extra = map[string]any{}
+		}
 		if extraName != "" {
 			req.Extra["name"] = extraName
 		}

@@ -42,7 +42,7 @@ Pay for a resource by sending a request with a `PAYMENT-SIGNATURE` header. Const
 
 ```
 x402cli pay -r <url> -p <json|file> --req <json|file>
-x402cli pay -r <url> -p payload.json --req requirements.json -o response.txt
+x402cli pay -r <url> -m POST -p payload.json --req requirements.json -d '{"key":"value"}'
 ```
 
 Flags:
@@ -50,6 +50,7 @@ Flags:
 - `-m`, `--method` — HTTP method, GET or POST (default: GET)
 - `-p`, `--payload` — inner payload as JSON or file path (required, output of `payload` command)
 - `--req`, `--requirements` — PaymentRequirements as JSON or file path (required)
+- `-d`, `--data` — request body as JSON string or file path (optional, sets Content-Type: application/json)
 - `-o`, `--output` — file path to write response body (default: stdout)
 
 On success (200), prints the response body and decodes the `PAYMENT-RESPONSE` settlement header to stderr. On 402, prints the PaymentRequired JSON.
@@ -118,13 +119,17 @@ When `--req` is provided, the requirements object is used to populate default va
 
 ### req
 
-Generate a payment requirements object. All field flags are optional.
+Generate a payment requirements object, either from individual flags or by fetching from a resource server.
 
 ```
-x402cli req [options]
+x402cli req --scheme exact --network eip155:84532 --amount 10000
+x402cli req -r http://localhost:3000/api/data
+x402cli req -r http://localhost:3000/api/data -i 1 --amount 5000 -o requirements.json
 ```
 
 Flags:
+- `-r`, `--resource` — URL of resource to fetch requirements from (hits server, parses 402 response)
+- `-i`, `--index` — index into the accepts array (default: 0)
 - `--scheme` — payment scheme (e.g. exact)
 - `--network` — CAIP-2 network (e.g. eip155:84532)
 - `--amount` — amount in smallest unit
@@ -134,3 +139,5 @@ Flags:
 - `--extra-name` — EIP-712 domain name (e.g. USD Coin)
 - `--extra-version` — EIP-712 domain version (e.g. 2)
 - `-o`, `--output` — file path to write output (default: stdout)
+
+When `-r` is provided, the command fetches the PaymentRequired response from the resource server and uses `accepts[index]` as the base. Individual flags override fields from the fetched requirements.
