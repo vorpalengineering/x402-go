@@ -44,7 +44,13 @@ func main() {
             PayTo:   "0x123...",
             Asset:   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
         },
-        ProtectedPaths:   []string{"/api/*"},
+        ProtectedPaths: []string{"/api/*"},
+        RouteResources: map[string]*types.ResourceInfo{
+            "/api/data": {
+                Description: "Protected data endpoint",
+                MimeType:    "application/json",
+            },
+        },
         MaxBufferSize:    5 * 1024 * 1024, // 5 MB max response
         DiscoveryEnabled: true,
     })
@@ -232,8 +238,11 @@ The response is only sent to the client AFTER successful payment settlement. If 
 ```json
 {
   "x402Version": 2,
+  "error": "PAYMENT-SIGNATURE header is required",
   "resource": {
-    "url": "/api/data"
+    "url": "/api/data",
+    "description": "Protected data endpoint",
+    "mimeType": "application/json"
   },
   "accepts": [
     {

@@ -190,14 +190,21 @@ func (m *X402Middleware) getRequirements(path string) types.PaymentRequirements 
 
 func (m *X402Middleware) sendPaymentRequired(ctx *gin.Context, path string) {
 	requirements := m.getRequirements(path)
+	headerName := m.config.GetPaymentHeaderName()
+
+	resource := &types.ResourceInfo{
+		URL: path,
+	}
+	if r, exists := m.config.RouteResources[path]; exists {
+		resource.Description = r.Description
+		resource.MimeType = r.MimeType
+	}
+
 	response := types.PaymentRequired{
 		X402Version: 2,
-		Resource: &types.ResourceInfo{
-			URL:         path,
-			Description: "",
-			MimeType:    "",
-		},
-		Accepts: []types.PaymentRequirements{requirements},
+		Error:       headerName + " header is required",
+		Resource:    resource,
+		Accepts:     []types.PaymentRequirements{requirements},
 	}
 	setPaymentRequiredHeader(ctx, &response)
 	ctx.JSON(http.StatusPaymentRequired, response)
