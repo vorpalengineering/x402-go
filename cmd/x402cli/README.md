@@ -18,7 +18,8 @@ x402cli
 ├── verify       Verify a payment payload (facilitator)
 ├── settle       Settle a payment payload (facilitator)
 ├── payload      Generate a payment payload with EIP-3009 authorization
-└── req          Generate a payment requirements object
+├── req          Generate a payment requirements object
+└── proof        Generate an ownership proof signature for a resource URL
 ```
 
 ### check
@@ -141,3 +142,15 @@ Flags:
 - `-o`, `--output` — file path to write output (default: stdout)
 
 When `-r` is provided, the command fetches the PaymentRequired response from the resource server and uses `accepts[index]` as the base. Individual flags override fields from the fetched requirements.
+
+### proof
+
+Generate an EIP-191 personal sign ownership proof for a resource URL. The signature can be used in the `ownershipProofs` field of a `.well-known/x402` discovery response.
+
+```
+x402cli proof -r https://api.example.com --private-key 0x...
+```
+
+Flags:
+- `-r`, `--resource` — URL to sign (required)
+- `--private-key` — hex-encoded private key for signing (required)

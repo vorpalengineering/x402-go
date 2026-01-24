@@ -29,6 +29,8 @@ func main() {
 		payloadCommand()
 	case "requirements", "req":
 		requirementsCommand()
+	case "proof":
+		proofCommand()
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", subcommand)
 		printUsage()
@@ -50,6 +52,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  settle      Settle a payment payload via a facilitator")
 	fmt.Fprintln(os.Stderr, "  payload     Generate a payment payload with EIP-3009 authorization")
 	fmt.Fprintln(os.Stderr, "  req         Generate a payment requirements object")
+	fmt.Fprintln(os.Stderr, "  proof       Generate an ownership proof signature for a resource URL")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintln(os.Stderr, "  x402cli check -r http://localhost:3000/api/data")
@@ -59,4 +62,5 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  x402cli settle -f http://localhost:8080 -p payload.json -r requirements.json")
 	fmt.Fprintln(os.Stderr, "  x402cli payload --to 0x... --value 10000 --private-key 0x...")
 	fmt.Fprintln(os.Stderr, "  x402cli req --scheme exact --network eip155:84532 --amount 10000")
+	fmt.Fprintln(os.Stderr, "  x402cli proof -r https://api.example.com --private-key 0x...")
 }
