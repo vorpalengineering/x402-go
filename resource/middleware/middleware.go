@@ -27,6 +27,12 @@ func NewX402Middleware(cfg *MiddlewareConfig) *X402Middleware {
 
 func (m *X402Middleware) Handler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		// Serve discovery endpoint if enabled
+		if m.config.DiscoveryEnabled && ctx.Request.URL.Path == "/.well-known/x402" {
+			m.serveDiscovery(ctx)
+			return
+		}
+
 		// Check if the current path requires payment
 		if !m.isProtectedPath(ctx.Request.URL.Path) {
 			ctx.Next()
@@ -92,11 +98,21 @@ func (m *X402Middleware) Handler() gin.HandlerFunc {
 		ctx.Set("x402_payment_requirements", requirements)
 
 		// Replace response writer with buffered version to capture response
-		buffered := newBufferedWriter(ctx.Writer)
+		buffered := newBufferedWriter(ctx.Writer, m.config.MaxBufferSize)
 		ctx.Writer = buffered
 
 		// STEP 2: Fulfill request (handler executes)
 		ctx.Next()
+
+		// Check for buffer overflow
+		if buffered.overflow {
+			log.Printf("Response exceeded max buffer size (%d bytes), aborting", m.config.MaxBufferSize)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Response too large to process payment",
+			})
+			ctx.Abort()
+			return
+		}
 
 		// STEP 3: Settle payment if handler succeeded (2xx status)
 		if buffered.Status() >= 200 && buffered.Status() < 300 {
@@ -208,4 +224,16 @@ func setPaymentResponseHeader(ctx *gin.Context, response *types.SettleResponse) 
 		return
 	}
 	ctx.Header("PAYMENT-RESPONSE", base64.StdEncoding.EncodeToString(data))
+}
+
+func (m *X402Middleware) serveDiscovery(ctx *gin.Context) {
+	discovery := gin.H{
+		"version":   1,
+		"resources": m.config.ProtectedPaths,
+	}
+	if len(m.config.OwnershipProofs) > 0 {
+		discovery["ownershipProofs"] = m.config.OwnershipProofs
+	}
+	ctx.JSON(http.StatusOK, discovery)
+	ctx.Abort()
 }

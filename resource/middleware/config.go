@@ -29,6 +29,18 @@ type MiddlewareConfig struct {
 	// PaymentHeaderName is the name of the HTTP header containing the payment signature
 	// Defaults to "PAYMENT-SIGNATURE" if not specified
 	PaymentHeaderName string
+
+	// MaxBufferSize is the maximum response buffer size in bytes.
+	// If the handler response exceeds this size, the request is aborted.
+	// 0 means unlimited.
+	MaxBufferSize int
+
+	// DiscoveryEnabled enables serving the /.well-known/x402 discovery endpoint
+	DiscoveryEnabled bool
+
+	// OwnershipProofs is a list of pre-generated EIP-191 signatures
+	// proving ownership of the protected resource URLs
+	OwnershipProofs []string
 }
 
 func (c *MiddlewareConfig) Validate() error {
