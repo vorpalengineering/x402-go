@@ -220,6 +220,26 @@ if settleResp.Success {
 }
 ```
 
+## Docker
+
+Both the facilitator and CLI can be run as containers via Docker Compose.
+
+```bash
+# Start the facilitator service
+export X402_FACILITATOR_PRIVATE_KEY=0x...
+docker compose up facilitator
+
+# Run a CLI command
+docker compose run --rm x402cli supported -f http://facilitator:4020
+
+# Build images without starting
+docker compose build
+```
+
+The facilitator mounts `facilitator/config.yaml` into the container. Ensure the file exists before running (copy from `facilitator/config.example.yaml`).
+
+See the [facilitator README](facilitator/README.md#docker) and [CLI README](cmd/x402cli/README.md#docker) for more details.
+
 ## v2 Protocol
 
 This implementation follows x402 protocol version 2. Key aspects:
