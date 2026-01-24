@@ -35,6 +35,7 @@ x402cli check -r <url> -o requirements.json
 Flags:
 - `-r`, `--resource` — URL of the resource to check (required)
 - `-m`, `--method` — HTTP method, GET or POST (default: GET)
+- `-d`, `--data` — request body data (optional)
 - `-o`, `--output` — file path to write JSON output (default: stdout)
 
 ### pay
@@ -125,11 +126,14 @@ Generate a payment requirements object, either from individual flags or by fetch
 ```
 x402cli req --scheme exact --network eip155:84532 --amount 10000
 x402cli req -r http://localhost:3000/api/data
+x402cli req -r http://localhost:3000/api/data -m POST -d '{"key":"value"}'
 x402cli req -r http://localhost:3000/api/data -i 1 --amount 5000 -o requirements.json
 ```
 
 Flags:
 - `-r`, `--resource` — URL of resource to fetch requirements from (hits server, parses 402 response)
+- `-m`, `--method` — HTTP method to use when fetching requirements (default: GET)
+- `-d`, `--data` — request body data (optional)
 - `-i`, `--index` — index into the accepts array (default: 0)
 - `--scheme` — payment scheme (e.g. exact)
 - `--network` — CAIP-2 network (e.g. eip155:84532)

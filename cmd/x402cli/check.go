@@ -12,13 +12,15 @@ import (
 func checkCommand() {
 	// Define flags for check command
 	checkFlags := flag.NewFlagSet("check", flag.ExitOnError)
-	var resource, output, method string
+	var resource, output, method, data string
 	checkFlags.StringVar(&resource, "resource", "", "URL of the resource to check (required)")
 	checkFlags.StringVar(&resource, "r", "", "URL of the resource to check (required)")
 	checkFlags.StringVar(&output, "output", "", "File path to write JSON output")
 	checkFlags.StringVar(&output, "o", "", "File path to write JSON output")
 	checkFlags.StringVar(&method, "method", "GET", "HTTP method (GET or POST)")
 	checkFlags.StringVar(&method, "m", "GET", "HTTP method (GET or POST)")
+	checkFlags.StringVar(&data, "data", "", "Request body data")
+	checkFlags.StringVar(&data, "d", "", "Request body data")
 
 	// Parse flags
 	checkFlags.Parse(os.Args[2:])
@@ -43,7 +45,7 @@ func checkCommand() {
 	c := client.NewClient(nil)
 
 	// Check if payment is required
-	resp, paymentRequired, err := c.CheckForPaymentRequired(method, resource, "", nil)
+	resp, paymentRequired, err := c.CheckForPaymentRequired(method, resource, "", []byte(data))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
