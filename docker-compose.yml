@@ -1,0 +1,22 @@
+services:
+  facilitator:
+    build:
+      context: .
+      dockerfile: cmd/facilitator/Dockerfile
+    ports:
+      - "4020:4020"
+    volumes:
+      - ./facilitator/config.yaml:/etc/x402/config.yaml:ro
+    command: ["--config", "/etc/x402/config.yaml"]
+    environment:
+      - X402_FACILITATOR_PRIVATE_KEY
+    restart: unless-stopped
+
+  x402cli:
+    build:
+      context: .
+      dockerfile: cmd/x402cli/Dockerfile
+    environment:
+      - X402_FACILITATOR_PRIVATE_KEY
+    profiles:
+      - cli

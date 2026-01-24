@@ -143,6 +143,38 @@ Flags:
 
 When `-r` is provided, the command fetches the PaymentRequired response from the resource server and uses `accepts[index]` as the base. Individual flags override fields from the fetched requirements.
 
+## Docker
+
+A multi-stage Dockerfile is provided at `cmd/x402cli/Dockerfile`. It produces a minimal Alpine-based image containing only the `x402cli` binary.
+
+### Building
+
+```bash
+# From the project root
+docker build -f cmd/x402cli/Dockerfile -t x402cli .
+```
+
+### Running
+
+```bash
+# Run any CLI command
+docker run --rm x402cli supported -f http://host.docker.internal:4020
+
+# Pass a private key for signing operations
+docker run --rm -e X402_FACILITATOR_PRIVATE_KEY=0x... x402cli payload \
+  --req requirements.json --private-key 0x...
+```
+
+### Docker Compose
+
+The CLI is defined as a service in the project-level `docker-compose.yml` under the `cli` profile. It won't start with `docker compose up` by default.
+
+```bash
+# Run CLI commands via compose (has network access to the facilitator service)
+docker compose run --rm x402cli supported -f http://facilitator:4020
+docker compose run --rm x402cli check -r https://api.example.com/data
+```
+
 ### proof
 
 Generate an EIP-191 personal sign ownership proof for a resource URL. The signature can be used in the `ownershipProofs` field of a `.well-known/x402` discovery response.

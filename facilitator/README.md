@@ -172,6 +172,48 @@ Executes the payment on-chain via `TransferWithAuthorization`.
 }
 ```
 
+## Docker
+
+A multi-stage Dockerfile is provided at `cmd/facilitator/Dockerfile`. It produces a minimal Alpine-based image containing only the `facilitator` binary, exposing port 4020.
+
+### Building
+
+```bash
+# From the project root
+docker build -f cmd/facilitator/Dockerfile -t x402-facilitator .
+```
+
+### Running
+
+```bash
+# Run with a mounted config and private key
+docker run --rm -p 4020:4020 \
+  -v $(pwd)/facilitator/config.yaml:/etc/x402/config.yaml:ro \
+  -e X402_FACILITATOR_PRIVATE_KEY=0x... \
+  x402-facilitator --config /etc/x402/config.yaml
+```
+
+### Docker Compose
+
+The facilitator is defined as a service in the project-level `docker-compose.yml`:
+
+```bash
+# Set your private key and start the facilitator
+export X402_FACILITATOR_PRIVATE_KEY=0x...
+docker compose up facilitator
+
+# Rebuild after code changes
+docker compose build facilitator
+docker compose up facilitator
+```
+
+The compose service mounts `facilitator/config.yaml` read-only into the container at `/etc/x402/config.yaml`. Ensure your config file exists before running:
+
+```bash
+cp facilitator/config.example.yaml facilitator/config.yaml
+# Edit facilitator/config.yaml with your RPC URLs and supported networks
+```
+
 ## Facilitator Client
 
 Use the client library to communicate with a facilitator from your resource server:
