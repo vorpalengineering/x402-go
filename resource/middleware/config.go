@@ -8,44 +8,44 @@ import (
 
 type MiddlewareConfig struct {
 	// FacilitatorURL is the base URL of the x402 facilitator service
-	FacilitatorURL string
+	FacilitatorURL string `json:"facilitatorUrl" toml:"facilitator_url"`
 
 	// DefaultRequirements specifies the default payment requirements
 	// for protected routes that don't have specific requirements
-	DefaultRequirements types.PaymentRequirements
+	DefaultRequirements types.PaymentRequirements `json:"defaultRequirements" toml:"default_requirements"`
 
 	// ProtectedPaths is a list of path patterns that require payment
 	// Supports glob patterns like "/api/*" or exact paths like "/data"
-	ProtectedPaths []string
+	ProtectedPaths []string `json:"protectedPaths" toml:"protected_paths"`
 
 	// RouteRequirements maps specific routes to custom payment requirements
 	// If a route matches multiple patterns, the most specific match is used
 	// Routes not in this map will use DefaultRequirements
-	RouteRequirements map[string]types.PaymentRequirements
+	RouteRequirements map[string]types.PaymentRequirements `json:"routeRequirements,omitempty" toml:"route_requirements"`
 
 	// RouteResources maps a specific route to its ResourceInfo
-	RouteResources map[string]*types.ResourceInfo
+	RouteResources map[string]*types.ResourceInfo `json:"routeResources,omitempty" toml:"route_resources"`
 
 	// PaymentHeaderName is the name of the HTTP header containing the payment signature
 	// Defaults to "PAYMENT-SIGNATURE" if not specified
-	PaymentHeaderName string
+	PaymentHeaderName string `json:"paymentHeaderName,omitempty" toml:"payment_header_name"`
 
 	// MaxBufferSize is the maximum response buffer size in bytes.
 	// If the handler response exceeds this size, the request is aborted.
 	// 0 means unlimited.
-	MaxBufferSize int
+	MaxBufferSize int `json:"maxBufferSize,omitempty" toml:"max_buffer_size"`
 
 	// DiscoveryEnabled enables serving the /.well-known/x402 discovery endpoint
-	DiscoveryEnabled bool
+	DiscoveryEnabled bool `json:"discoveryEnabled,omitempty" toml:"discovery_enabled"`
 
 	// OwnershipProofs is a list of pre-generated EIP-191 signatures
 	// proving ownership of the protected resource URLs
-	OwnershipProofs []string
+	OwnershipProofs []string `json:"ownershipProofs,omitempty" toml:"ownership_proofs"`
 
 	// Instructions is an optional markdown-formatted string containing
 	// instructions or information for users of your resources.
 	// Included in the /.well-known/x402 discovery response if non-empty.
-	Instructions string
+	Instructions string `json:"instructions,omitempty" toml:"instructions"`
 }
 
 func (c *MiddlewareConfig) Validate() error {
