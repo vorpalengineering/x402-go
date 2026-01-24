@@ -234,6 +234,9 @@ func (m *X402Middleware) serveDiscovery(ctx *gin.Context) {
 	if len(m.config.OwnershipProofs) > 0 {
 		discovery["ownershipProofs"] = m.config.OwnershipProofs
 	}
+	if m.config.Instructions != "" {
+		discovery["instructions"] = m.config.Instructions
+	}
 	ctx.JSON(http.StatusOK, discovery)
 	ctx.Abort()
 }

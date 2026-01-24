@@ -41,6 +41,11 @@ type MiddlewareConfig struct {
 	// OwnershipProofs is a list of pre-generated EIP-191 signatures
 	// proving ownership of the protected resource URLs
 	OwnershipProofs []string
+
+	// Instructions is an optional markdown-formatted string containing
+	// instructions or information for users of your resources.
+	// Included in the /.well-known/x402 discovery response if non-empty.
+	Instructions string
 }
 
 func (c *MiddlewareConfig) Validate() error {
