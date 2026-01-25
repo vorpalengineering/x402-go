@@ -73,6 +73,14 @@ func DecodePaymentHeader(header string) (*types.PaymentPayload, error) {
 	return &payload, nil
 }
 
+func EncodePaymentHeader(payload *types.PaymentPayload) (string, error) {
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal payment payload: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(payloadJSON), nil
+}
+
 func ExtractExactAuthorization(payload *types.PaymentPayload) (*types.ExactEVMSchemeAuthorization, error) {
 	// Get authorization object
 	authData, ok := payload.Payload["authorization"]

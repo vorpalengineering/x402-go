@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -147,7 +146,7 @@ func (rc *ResourceClient) Pay(
 	}
 
 	// Encode to base64 for header
-	paymentHeader, err := EncodePayload(payload)
+	paymentHeader, err := utils.EncodePaymentHeader(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -172,8 +171,8 @@ func (rc *ResourceClient) Pay(
 }
 
 // Payload generates a signed payment payload for the given requirements.
-// Returns the raw PaymentPayload struct. Use EncodePayload() to get the base64-encoded
-// string for the PAYMENT-SIGNATURE header.
+// Returns the raw PaymentPayload struct. Use utils.EncodePaymentHeader() to get
+// the base64-encoded string for the PAYMENT-SIGNATURE header.
 func (rc *ResourceClient) Payload(requirements *types.PaymentRequirements) (*types.PaymentPayload, error) {
 	// Check that we have a private key for payment generation
 	if rc.privateKey == nil {
@@ -240,15 +239,6 @@ func (rc *ResourceClient) Payload(requirements *types.PaymentRequirements) (*typ
 	}
 
 	return payload, nil
-}
-
-// EncodePayload encodes a PaymentPayload to a base64 string for the PAYMENT-SIGNATURE header.
-func EncodePayload(payload *types.PaymentPayload) (string, error) {
-	payloadJSON, err := json.Marshal(payload)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal payment payload: %w", err)
-	}
-	return base64.StdEncoding.EncodeToString(payloadJSON), nil
 }
 
 // TODO: make this a generic function for all tokens

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/vorpalengineering/x402-go/types"
+	"github.com/vorpalengineering/x402-go/utils"
 )
 
 func payCommand() {
@@ -67,19 +68,18 @@ func payCommand() {
 	}
 
 	// Construct full PaymentPayload
-	fullPayload := types.PaymentPayload{
+	fullPayload := &types.PaymentPayload{
 		X402Version: 2,
 		Accepted:    requirements,
 		Payload:     innerPayload,
 	}
 
-	// Marshal to JSON, then base64 encode
-	payloadJSON, err := json.Marshal(fullPayload)
+	// Encode to base64 for header
+	paymentHeader, err := utils.EncodePaymentHeader(fullPayload)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error encoding payment payload: %v\n", err)
 		os.Exit(1)
 	}
-	paymentHeader := base64.StdEncoding.EncodeToString(payloadJSON)
 
 	// Make HTTP request with PAYMENT-SIGNATURE header
 	var reqBody io.Reader

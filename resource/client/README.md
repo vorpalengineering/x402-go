@@ -148,10 +148,10 @@ Generates a signed payment payload for the given requirements. Returns the raw `
 4. Signs with EIP-712 typed data
 5. Returns the `PaymentPayload` struct
 
-### EncodePayload
+### utils.EncodePaymentHeader
 
 ```go
-func EncodePayload(payload *types.PaymentPayload) (string, error)
+func utils.EncodePaymentHeader(payload *types.PaymentPayload) (string, error)
 ```
 
 Encodes a `PaymentPayload` to a base64 string suitable for the `PAYMENT-SIGNATURE` header.
@@ -253,7 +253,7 @@ if len(requirements) > 0 {
     }
 
     // Encode for header
-    paymentHeader, err := client.EncodePayload(payload)
+    paymentHeader, err := utils.EncodePaymentHeader(payload)
     if err != nil {
         log.Fatal(err)
     }
