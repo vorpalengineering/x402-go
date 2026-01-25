@@ -216,13 +216,13 @@ import (
     "github.com/vorpalengineering/x402-go/types"
 )
 
-c := client.NewClient("http://localhost:4020")
+fc := client.NewFacilitatorClient("http://localhost:4020")
 
 // Get supported schemes
-supported, err := c.Supported()
+supported, err := fc.Supported()
 
 // Verify a payment
-verifyResp, err := c.Verify(&types.VerifyRequest{
+verifyResp, err := fc.Verify(&types.VerifyRequest{
     PaymentPayload: paymentPayload,
     PaymentRequirements: types.PaymentRequirements{
         Scheme:  "exact",
@@ -237,7 +237,7 @@ if verifyResp.IsValid {
 }
 
 // Settle a payment
-settleResp, err := c.Settle(&types.SettleRequest{
+settleResp, err := fc.Settle(&types.SettleRequest{
     PaymentPayload:      paymentPayload,
     PaymentRequirements: requirements,
 })
@@ -256,7 +256,7 @@ export X402_FACILITATOR_PRIVATE_KEY=0x...
 docker compose up facilitator
 
 # Run a CLI command
-docker compose run --rm x402cli supported -f http://facilitator:4020
+docker compose run --rm x402cli supported -u http://facilitator:4020
 
 # Build images without starting
 docker compose build
