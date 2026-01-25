@@ -7,10 +7,10 @@ Go implementation of the [x402 protocol](https://github.com/coinbase/x402) (v2) 
 ### As A Buyer
 
 1. Browse available resources with `x402cli browse` or `ResourceClient.Browse()`
-2. Check available payment requirements with `x402 check` or `ResourceClient.Check()`
-3. Select and fetch payment requirement with `x402 req` or `ResourceClient.Requirements()`
-4. Create and sign payment payload with `x402 payload` or `ResourceClient.Payload()`
-5. Pay for resource with `x402 pay` or `ResourceClient.Pay()`
+2. Check available payment requirements with `x402cli check` or `ResourceClient.Check()`
+3. Select and fetch payment requirement with `x402cli req` or `ResourceClient.Requirements()`
+4. Create and sign payment payload with `x402cli payload` or `ResourceClient.Payload()`
+5. Pay for resource with `x402cli pay` or `ResourceClient.Pay()`
 
 ### As A Seller
 
