@@ -133,20 +133,28 @@ if err != nil {
 fmt.Printf("Payment required: %s %s on %s\n", req.Amount, req.Asset, req.Network)
 ```
 
-### GeneratePayment
+### Payload
 
 ```go
-func (c *Client) GeneratePayment(requirements *types.PaymentRequirements) (string, error)
+func (c *ResourceClient) Payload(requirements *types.PaymentRequirements) (*types.PaymentPayload, error)
 ```
 
-Generates a base64-encoded payment payload for the `PAYMENT-SIGNATURE` header.
+Generates a signed payment payload for the given requirements. Returns the raw `PaymentPayload` struct.
 
 **What it does:**
 1. Validates payment scheme (currently only `exact`)
 2. Parses amount, recipient, and token contract addresses
 3. Creates EIP-3009 `TransferWithAuthorization` (random nonce, 1-hour validity window)
 4. Signs with EIP-712 typed data
-5. Returns base64-encoded JSON payload
+5. Returns the `PaymentPayload` struct
+
+### EncodePayload
+
+```go
+func EncodePayload(payload *types.PaymentPayload) (string, error)
+```
+
+Encodes a `PaymentPayload` to a base64 string suitable for the `PAYMENT-SIGNATURE` header.
 
 ### PayForResource
 
@@ -239,7 +247,13 @@ c := client.NewClient(privateKey)
 
 _, requirements, err := c.CheckForPaymentRequired("GET", url, "", nil)
 if len(requirements) > 0 {
-    paymentHeader, err := c.GeneratePayment(&requirements[0])
+    payload, err := c.Payload(&requirements[0])
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Encode for header
+    paymentHeader, err := client.EncodePayload(payload)
     if err != nil {
         log.Fatal(err)
     }

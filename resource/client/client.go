@@ -140,8 +140,14 @@ func (rc *ResourceClient) Pay(
 	body []byte,
 	requirements *types.PaymentRequirements,
 ) (*http.Response, error) {
-	// Generate payment header
-	paymentHeader, err := rc.GeneratePayment(requirements)
+	// Generate payment payload
+	payload, err := rc.Payload(requirements)
+	if err != nil {
+		return nil, err
+	}
+
+	// Encode to base64 for header
+	paymentHeader, err := EncodePayload(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -165,39 +171,42 @@ func (rc *ResourceClient) Pay(
 	return resp, nil
 }
 
-func (rc *ResourceClient) GeneratePayment(requirements *types.PaymentRequirements) (string, error) {
+// Payload generates a signed payment payload for the given requirements.
+// Returns the raw PaymentPayload struct. Use EncodePayload() to get the base64-encoded
+// string for the PAYMENT-SIGNATURE header.
+func (rc *ResourceClient) Payload(requirements *types.PaymentRequirements) (*types.PaymentPayload, error) {
 	// Check that we have a private key for payment generation
 	if rc.privateKey == nil {
-		return "", fmt.Errorf("cannot generate payment: client was created without a private key")
+		return nil, fmt.Errorf("cannot generate payment: client was created without a private key")
 	}
 
 	// Validate scheme
 	if requirements.Scheme != "exact" {
-		return "", fmt.Errorf("unsupported payment scheme: %s (only 'exact' is supported)", requirements.Scheme)
+		return nil, fmt.Errorf("unsupported payment scheme: %s (only 'exact' is supported)", requirements.Scheme)
 	}
 
 	// Parse amount
 	value, ok := new(big.Int).SetString(requirements.Amount, 10)
 	if !ok {
-		return "", fmt.Errorf("invalid amount: %s", requirements.Amount)
+		return nil, fmt.Errorf("invalid amount: %s", requirements.Amount)
 	}
 
 	// Parse recipient address
 	toAddress := common.HexToAddress(requirements.PayTo)
 	if toAddress == (common.Address{}) {
-		return "", fmt.Errorf("invalid recipient address: %s", requirements.PayTo)
+		return nil, fmt.Errorf("invalid recipient address: %s", requirements.PayTo)
 	}
 
 	// Parse asset (token contract) address
 	assetAddress := common.HexToAddress(requirements.Asset)
 	if assetAddress == (common.Address{}) {
-		return "", fmt.Errorf("invalid asset address: %s", requirements.Asset)
+		return nil, fmt.Errorf("invalid asset address: %s", requirements.Asset)
 	}
 
 	// Get chain ID for the network
 	chainID, err := utils.GetChainID(requirements.Network)
 	if err != nil {
-		return "", fmt.Errorf("failed to get chain id: %s", err)
+		return nil, fmt.Errorf("failed to get chain id: %s", err)
 	}
 
 	// Generate EIP-3009 authorization
@@ -210,11 +219,11 @@ func (rc *ResourceClient) GeneratePayment(requirements *types.PaymentRequirement
 		chainID.Int64(),
 	)
 	if err != nil {
-		return "", fmt.Errorf("failed to create EIP-3009 authorization: %w", err)
+		return nil, fmt.Errorf("failed to create EIP-3009 authorization: %w", err)
 	}
 
 	// Build payment payload
-	payload := types.PaymentPayload{
+	payload := &types.PaymentPayload{
 		X402Version: 2,
 		Accepted:    *requirements,
 		Payload: map[string]any{
@@ -230,13 +239,15 @@ func (rc *ResourceClient) GeneratePayment(requirements *types.PaymentRequirement
 		},
 	}
 
-	// Encode to JSON
+	return payload, nil
+}
+
+// EncodePayload encodes a PaymentPayload to a base64 string for the PAYMENT-SIGNATURE header.
+func EncodePayload(payload *types.PaymentPayload) (string, error) {
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal payment payload: %w", err)
 	}
-
-	// Encode to base64
 	return base64.StdEncoding.EncodeToString(payloadJSON), nil
 }
 
