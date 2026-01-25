@@ -109,3 +109,11 @@ type EIP3009Authorization struct {
 	R           [32]byte
 	S           [32]byte
 }
+
+// DiscoveryResponse represents the /.well-known/x402 discovery document
+type DiscoveryResponse struct {
+	Version         int      `json:"version"`
+	Resources       []string `json:"resources"`
+	OwnershipProofs []string `json:"ownershipProofs,omitempty"`
+	Instructions    string   `json:"instructions,omitempty"`
+}

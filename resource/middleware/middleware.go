@@ -240,15 +240,11 @@ func (m *X402Middleware) serveDiscovery(ctx *gin.Context) {
 		resources[i] = m.config.BaseURL + endpoint
 	}
 
-	discovery := gin.H{
-		"version":   1,
-		"resources": resources,
-	}
-	if len(m.config.OwnershipProofs) > 0 {
-		discovery["ownershipProofs"] = m.config.OwnershipProofs
-	}
-	if m.config.Instructions != "" {
-		discovery["instructions"] = m.config.Instructions
+	discovery := types.DiscoveryResponse{
+		Version:         1,
+		Resources:       resources,
+		OwnershipProofs: m.config.OwnershipProofs,
+		Instructions:    m.config.Instructions,
 	}
 	ctx.JSON(http.StatusOK, discovery)
 	ctx.Abort()

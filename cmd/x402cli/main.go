@@ -15,6 +15,8 @@ func main() {
 	subcommand := os.Args[1]
 
 	switch subcommand {
+	case "browse":
+		browseCommand()
 	case "check":
 		checkCommand()
 	case "pay":
@@ -45,6 +47,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  x402cli <command> [flags]")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "Commands:")
+	fmt.Fprintln(os.Stderr, "  browse      Fetch the /.well-known/x402 discovery document")
 	fmt.Fprintln(os.Stderr, "  check       Check if a resource requires payment")
 	fmt.Fprintln(os.Stderr, "  pay         Pay for a resource with a payment payload")
 	fmt.Fprintln(os.Stderr, "  supported   Query a facilitator for supported schemes/networks")
@@ -55,6 +58,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  proof       Generate an ownership proof signature for a resource URL")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "Examples:")
+	fmt.Fprintln(os.Stderr, "  x402cli browse -u https://api.example.com")
 	fmt.Fprintln(os.Stderr, "  x402cli check -r http://localhost:3000/api/data")
 	fmt.Fprintln(os.Stderr, "  x402cli pay -r http://localhost:3000/api/data -p payload.json --req requirements.json")
 	fmt.Fprintln(os.Stderr, "  x402cli supported --facilitator http://localhost:8080")

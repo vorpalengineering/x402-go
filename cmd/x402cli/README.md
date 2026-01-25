@@ -12,6 +12,7 @@ x402cli <command> [flags]
 
 ```
 x402cli
+├── browse       Fetch the /.well-known/x402 discovery document
 ├── check        Check if a resource requires payment (resource server)
 ├── pay          Pay for a resource with a payment payload (resource server)
 ├── supported    Query facilitator for supported schemes/networks
@@ -21,6 +22,38 @@ x402cli
 ├── req          Generate a payment requirements object
 └── proof        Generate an ownership proof signature for a resource URL
 ```
+
+### browse
+
+Fetch the `/.well-known/x402` discovery document from a server. Returns the list of x402-protected endpoint URLs and optional metadata.
+
+```
+x402cli browse -u https://api.example.com
+x402cli browse -u https://api.example.com -o discovery.json
+```
+
+Flags:
+- `-u`, `--url` — base URL of the server (required)
+- `-o`, `--output` — file path to write JSON output (default: stdout)
+
+Example output:
+
+```json
+{
+  "version": 1,
+  "resources": [
+    "https://api.example.com/api/data",
+    "https://api.example.com/api/premium"
+  ],
+  "ownershipProofs": [
+    "0xabc123...",
+    "0xdef456..."
+  ],
+  "instructions": "This API provides premium data. Pay per request."
+}
+```
+
+> NOTE: Since a resource may have multiple accepted `payTo` addresses (e.g. EVM, Solana, etc.) there may be multiple proofs associated with one resource.
 
 ### check
 
