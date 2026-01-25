@@ -75,6 +75,38 @@ func (rc *ResourceClient) Check(method string, url string, contentType string, b
 	return resp, &paymentResp, nil
 }
 
+func (rc *ResourceClient) Pay(
+	method string,
+	url string,
+	contentType string,
+	body []byte,
+	requirements *types.PaymentRequirements,
+) (*http.Response, error) {
+	// Generate payment header
+	paymentHeader, err := rc.GeneratePayment(requirements)
+	if err != nil {
+		return nil, err
+	}
+
+	// Make request with payment header
+	req, err := http.NewRequest(method, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	req.Header.Set("PAYMENT-SIGNATURE", paymentHeader)
+
+	resp, err := rc.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request with payment failed: %w", err)
+	}
+
+	return resp, nil
+}
+
 func (rc *ResourceClient) GeneratePayment(requirements *types.PaymentRequirements) (string, error) {
 	// Check that we have a private key for payment generation
 	if rc.privateKey == nil {
@@ -150,47 +182,6 @@ func (rc *ResourceClient) GeneratePayment(requirements *types.PaymentRequirement
 	return base64.StdEncoding.EncodeToString(payloadJSON), nil
 }
 
-func (rc *ResourceClient) PayForResource(
-	method string,
-	url string,
-	contentType string,
-	body []byte,
-	requirements *types.PaymentRequirements,
-) (*http.Response, error) {
-	// Generate payment header
-	paymentHeader, err := rc.GeneratePayment(requirements)
-	if err != nil {
-		return nil, err
-	}
-
-	// Make request with payment header
-	req, err := http.NewRequest(method, url, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	}
-	req.Header.Set("PAYMENT-SIGNATURE", paymentHeader)
-
-	resp, err := rc.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request with payment failed: %w", err)
-	}
-
-	return resp, nil
-}
-
-// encodeSignature converts EIP-3009 signature components (v, r, s) to hex string
-func encodeSignature(v uint8, r, s [32]byte) string {
-	sig := make([]byte, 65)
-	copy(sig[0:32], r[:])
-	copy(sig[32:64], s[:])
-	sig[64] = v - 27 // Convert from Ethereum's v (27/28) to standard (0/1)
-	return "0x" + hex.EncodeToString(sig)
-}
-
 // TODO: make this a generic function for all tokens
 func createDomainSeparator(verifyingContract common.Address, chainID *big.Int, name string, version string) common.Hash {
 	// EIP-712 Domain typeHash
@@ -215,6 +206,15 @@ func createDomainSeparator(verifyingContract common.Address, chainID *big.Int, n
 	)
 
 	return domainSeparator
+}
+
+// encodeSignature converts EIP-3009 signature components (v, r, s) to hex string
+func encodeSignature(v uint8, r, s [32]byte) string {
+	sig := make([]byte, 65)
+	copy(sig[0:32], r[:])
+	copy(sig[32:64], s[:])
+	sig[64] = v - 27 // Convert from Ethereum's v (27/28) to standard (0/1)
+	return "0x" + hex.EncodeToString(sig)
 }
 
 func generateNonce() ([32]byte, error) {
