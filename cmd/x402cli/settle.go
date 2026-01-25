@@ -13,9 +13,9 @@ import (
 func settleCommand() {
 	// Define flags for settle command
 	settleFlags := flag.NewFlagSet("settle", flag.ExitOnError)
-	var facilitatorURL, payloadInput, requirementInput string
-	settleFlags.StringVar(&facilitatorURL, "facilitator", "", "URL of the facilitator service (required)")
-	settleFlags.StringVar(&facilitatorURL, "f", "", "URL of the facilitator service (required)")
+	var url, payloadInput, requirementInput string
+	settleFlags.StringVar(&url, "url", "", "URL of the facilitator service (required)")
+	settleFlags.StringVar(&url, "u", "", "URL of the facilitator service (required)")
 	settleFlags.StringVar(&payloadInput, "payload", "", "Payload object as JSON string or file path (required)")
 	settleFlags.StringVar(&payloadInput, "p", "", "Payload object as JSON string or file path (required)")
 	settleFlags.StringVar(&requirementInput, "requirement", "", "PaymentRequirements as JSON string or file path (required)")
@@ -25,10 +25,10 @@ func settleCommand() {
 	settleFlags.Parse(os.Args[2:])
 
 	// Validate required flags
-	if facilitatorURL == "" || payloadInput == "" || requirementInput == "" {
-		fmt.Fprintln(os.Stderr, "Error: --facilitator, --payload, and --requirement flags are all required")
+	if url == "" || payloadInput == "" || requirementInput == "" {
+		fmt.Fprintln(os.Stderr, "Error: --url, --payload, and --requirement flags are all required")
 		fmt.Fprintln(os.Stderr, "\nUsage:")
-		fmt.Fprintln(os.Stderr, "  x402cli settle -f <url> -p <json|file> -r <json|file>")
+		fmt.Fprintln(os.Stderr, "  x402cli settle -u <url> -p <json|file> -r <json|file>")
 		settleFlags.PrintDefaults()
 		os.Exit(1)
 	}
@@ -60,7 +60,7 @@ func settleCommand() {
 	}
 
 	// Call facilitator /settle
-	fc := facilitatorclient.NewFacilitatorClient(facilitatorURL)
+	fc := facilitatorclient.NewFacilitatorClient(url)
 	resp, err := fc.Settle(&req)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

@@ -95,8 +95,8 @@ On success (200), prints the response body and decodes the `PAYMENT-RESPONSE` se
 Query a facilitator for its supported schemes, networks, and signers.
 
 ```
-x402cli supported --facilitator <url>
-x402cli supported -f <url>
+x402cli supported --url <url>
+x402cli supported -u <url>
 ```
 
 ### verify
@@ -104,11 +104,11 @@ x402cli supported -f <url>
 Verify a payment payload against a facilitator. Takes a payload object and requirements object (as JSON strings or file paths).
 
 ```
-x402cli verify -f <facilitator-url> -p <json|file> -r <json|file>
+x402cli verify -u <facilitator-url> -p <json|file> -r <json|file>
 ```
 
 Flags:
-- `-f`, `--facilitator` — facilitator URL (required)
+- `-u`, `--url` — facilitator URL (required)
 - `-p`, `--payload` — payload object as JSON or file path (required)
 - `-r`, `--requirement` — payment requirements as JSON or file path (required)
 
@@ -117,11 +117,11 @@ Flags:
 Settle a payment payload via a facilitator. Same interface as verify, but calls `/settle`.
 
 ```
-x402cli settle -f <facilitator-url> -p <payload-json|file> -r <requirements-json|file>
+x402cli settle -u <facilitator-url> -p <payload-json|file> -r <requirements-json|file>
 ```
 
 Flags:
-- `-f`, `--facilitator` — facilitator URL (required)
+- `-u`, `--url` — facilitator URL (required)
 - `-p`, `--payload` — payload object as JSON or file path (required)
 - `-r`, `--requirement` — payment requirements as JSON or file path (required)
 
@@ -195,7 +195,7 @@ docker build -f cmd/x402cli/Dockerfile -t x402cli .
 
 ```bash
 # Run any CLI command
-docker run --rm x402cli supported -f http://host.docker.internal:4020
+docker run --rm x402cli supported -u http://host.docker.internal:4020
 
 # Pass a private key for signing operations
 docker run --rm -e X402_FACILITATOR_PRIVATE_KEY=0x... x402cli payload \
@@ -208,7 +208,7 @@ The CLI is defined as a service in the project-level `docker-compose.yml` under 
 
 ```bash
 # Run CLI commands via compose (has network access to the facilitator service)
-docker compose run --rm x402cli supported -f http://facilitator:4020
+docker compose run --rm x402cli supported -u http://facilitator:4020
 docker compose run --rm x402cli check -u https://api.example.com/data
 ```
 

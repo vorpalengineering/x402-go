@@ -13,9 +13,9 @@ import (
 func verifyCommand() {
 	// Define flags for verify command
 	verifyFlags := flag.NewFlagSet("verify", flag.ExitOnError)
-	var facilitatorURL, payloadInput, requirementInput string
-	verifyFlags.StringVar(&facilitatorURL, "facilitator", "", "URL of the facilitator service (required)")
-	verifyFlags.StringVar(&facilitatorURL, "f", "", "URL of the facilitator service (required)")
+	var url, payloadInput, requirementInput string
+	verifyFlags.StringVar(&url, "url", "", "URL of the facilitator service (required)")
+	verifyFlags.StringVar(&url, "u", "", "URL of the facilitator service (required)")
 	verifyFlags.StringVar(&payloadInput, "payload", "", "Payload object as JSON string or file path (required)")
 	verifyFlags.StringVar(&payloadInput, "p", "", "Payload object as JSON string or file path (required)")
 	verifyFlags.StringVar(&requirementInput, "requirement", "", "PaymentRequirements as JSON string or file path (required)")
@@ -25,10 +25,10 @@ func verifyCommand() {
 	verifyFlags.Parse(os.Args[2:])
 
 	// Validate required flags
-	if facilitatorURL == "" || payloadInput == "" || requirementInput == "" {
-		fmt.Fprintln(os.Stderr, "Error: --facilitator, --payload, and --requirement flags are all required")
+	if url == "" || payloadInput == "" || requirementInput == "" {
+		fmt.Fprintln(os.Stderr, "Error: --url, --payload, and --requirement flags are all required")
 		fmt.Fprintln(os.Stderr, "\nUsage:")
-		fmt.Fprintln(os.Stderr, "  x402cli verify -f <url> -p <json|file> -r <json|file>")
+		fmt.Fprintln(os.Stderr, "  x402cli verify -u <url> -p <json|file> -r <json|file>")
 		verifyFlags.PrintDefaults()
 		os.Exit(1)
 	}
@@ -60,7 +60,7 @@ func verifyCommand() {
 	}
 
 	// Call facilitator /verify
-	fc := facilitatorclient.NewFacilitatorClient(facilitatorURL)
+	fc := facilitatorclient.NewFacilitatorClient(url)
 	resp, err := fc.Verify(&req)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
