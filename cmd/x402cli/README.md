@@ -60,13 +60,13 @@ Example output:
 Check if a resource requires x402 payment. Outputs the full PaymentRequired JSON response if the resource returns 402.
 
 ```
-x402cli check -r <url>
-x402cli check -r <url> -m POST
-x402cli check -r <url> -o requirements.json
+x402cli check -u <url>
+x402cli check -u <url> -m POST
+x402cli check -u <url> -o requirements.json
 ```
 
 Flags:
-- `-r`, `--resource` — URL of the resource to check (required)
+- `-u`, `--url` — URL of the resource to check (required)
 - `-m`, `--method` — HTTP method, GET or POST (default: GET)
 - `-d`, `--data` — request body data (optional)
 - `-o`, `--output` — file path to write JSON output (default: stdout)
@@ -76,12 +76,12 @@ Flags:
 Pay for a resource by sending a request with a `PAYMENT-SIGNATURE` header. Constructs the full PaymentPayload from the inner payload and requirements, base64 encodes it, and sends it to the resource server.
 
 ```
-x402cli pay -r <url> -p <json|file> --req <json|file>
-x402cli pay -r <url> -m POST -p payload.json --req requirements.json -d '{"key":"value"}'
+x402cli pay -u <url> -p <json|file> --req <json|file>
+x402cli pay -u <url> -m POST -p payload.json --req requirements.json -d '{"key":"value"}'
 ```
 
 Flags:
-- `-r`, `--resource` — URL of the resource (required)
+- `-u`, `--url` — URL of the resource (required)
 - `-m`, `--method` — HTTP method, GET or POST (default: GET)
 - `-p`, `--payload` — inner payload as JSON or file path (required, output of `payload` command)
 - `--req`, `--requirements` — PaymentRequirements as JSON or file path (required)
@@ -158,13 +158,13 @@ Generate a payment requirements object, either from individual flags or by fetch
 
 ```
 x402cli req --scheme exact --network eip155:84532 --amount 10000
-x402cli req -r http://localhost:3000/api/data
-x402cli req -r http://localhost:3000/api/data -m POST -d '{"key":"value"}'
-x402cli req -r http://localhost:3000/api/data -i 1 --amount 5000 -o requirements.json
+x402cli req -u http://localhost:3000/api/data
+x402cli req -u http://localhost:3000/api/data -m POST -d '{"key":"value"}'
+x402cli req -u http://localhost:3000/api/data -i 1 --amount 5000 -o requirements.json
 ```
 
 Flags:
-- `-r`, `--resource` — URL of resource to fetch requirements from (hits server, parses 402 response)
+- `-u`, `--url` — URL of resource to fetch requirements from (hits server, parses 402 response)
 - `-m`, `--method` — HTTP method to use when fetching requirements (default: GET)
 - `-d`, `--data` — request body data (optional)
 - `-i`, `--index` — index into the accepts array (default: 0)
@@ -178,7 +178,7 @@ Flags:
 - `--extra-version` — EIP-712 domain version (e.g. 2)
 - `-o`, `--output` — file path to write output (default: stdout)
 
-When `-r` is provided, the command fetches the PaymentRequired response from the resource server and uses `accepts[index]` as the base. Individual flags override fields from the fetched requirements.
+When `-u` is provided, the command fetches the PaymentRequired response from the resource server and uses `accepts[index]` as the base. Individual flags override fields from the fetched requirements.
 
 ## Docker
 
@@ -209,7 +209,7 @@ The CLI is defined as a service in the project-level `docker-compose.yml` under 
 ```bash
 # Run CLI commands via compose (has network access to the facilitator service)
 docker compose run --rm x402cli supported -f http://facilitator:4020
-docker compose run --rm x402cli check -r https://api.example.com/data
+docker compose run --rm x402cli check -u https://api.example.com/data
 ```
 
 ### proof
@@ -217,9 +217,9 @@ docker compose run --rm x402cli check -r https://api.example.com/data
 Generate an EIP-191 personal sign ownership proof for a resource URL. The signature can be used in the `ownershipProofs` field of a `.well-known/x402` discovery response.
 
 ```
-x402cli proof -r https://api.example.com --private-key 0x...
+x402cli proof -u https://api.example.com --private-key 0x...
 ```
 
 Flags:
-- `-r`, `--resource` — URL to sign (required)
+- `-u`, `--url` — URL to sign (required)
 - `--private-key` — hex-encoded private key for signing (required)

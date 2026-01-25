@@ -14,19 +14,19 @@ import (
 func proofCommand() {
 	// Define flags
 	proofFlags := flag.NewFlagSet("proof", flag.ExitOnError)
-	var resource, privateKeyHex string
-	proofFlags.StringVar(&resource, "resource", "", "URL of the resource to sign (required)")
-	proofFlags.StringVar(&resource, "r", "", "URL of the resource to sign (required)")
+	var url, privateKeyHex string
+	proofFlags.StringVar(&url, "url", "", "URL of the resource to sign (required)")
+	proofFlags.StringVar(&url, "u", "", "URL of the resource to sign (required)")
 	proofFlags.StringVar(&privateKeyHex, "private-key", "", "Hex-encoded private key for signing (required)")
 
 	// Parse flags
 	proofFlags.Parse(os.Args[2:])
 
 	// Validate required flags
-	if resource == "" || privateKeyHex == "" {
-		fmt.Fprintln(os.Stderr, "Error: --resource and --private-key flags are required")
+	if url == "" || privateKeyHex == "" {
+		fmt.Fprintln(os.Stderr, "Error: --url and --private-key flags are required")
 		fmt.Fprintln(os.Stderr, "\nUsage:")
-		fmt.Fprintln(os.Stderr, "  x402cli proof -r <url> --private-key <hex>")
+		fmt.Fprintln(os.Stderr, "  x402cli proof -u <url> --private-key <hex>")
 		proofFlags.PrintDefaults()
 		os.Exit(1)
 	}
@@ -39,7 +39,7 @@ func proofCommand() {
 	}
 
 	// EIP-191 personal message hash: keccak256("\x19Ethereum Signed Message:\n" + len(msg) + msg)
-	msg := resource
+	msg := url
 	prefix := "\x19Ethereum Signed Message:\n" + strconv.Itoa(len(msg))
 	hash := crypto.Keccak256Hash([]byte(prefix + msg))
 

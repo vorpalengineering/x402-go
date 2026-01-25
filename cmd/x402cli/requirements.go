@@ -13,12 +13,12 @@ import (
 func requirementsCommand() {
 	// Define flags
 	reqFlags := flag.NewFlagSet("requirements", flag.ExitOnError)
-	var output, resource, method, data, scheme, network, amount, asset, payTo, extraName, extraVersion string
+	var output, url, method, data, scheme, network, amount, asset, payTo, extraName, extraVersion string
 	var maxTimeout, index int
 	reqFlags.StringVar(&output, "output", "", "File path to write JSON output")
 	reqFlags.StringVar(&output, "o", "", "File path to write JSON output")
-	reqFlags.StringVar(&resource, "resource", "", "URL of resource to fetch requirements from")
-	reqFlags.StringVar(&resource, "r", "", "URL of resource to fetch requirements from")
+	reqFlags.StringVar(&url, "url", "", "URL of resource to fetch requirements from")
+	reqFlags.StringVar(&url, "u", "", "URL of resource to fetch requirements from")
 	reqFlags.StringVar(&method, "method", "GET", "HTTP method to use when fetching requirements")
 	reqFlags.StringVar(&method, "m", "GET", "HTTP method to use when fetching requirements")
 	reqFlags.StringVar(&data, "data", "", "Request body data")
@@ -40,10 +40,10 @@ func requirementsCommand() {
 	// Build requirements
 	var req types.PaymentRequirements
 
-	if resource != "" {
+	if url != "" {
 		// Fetch requirements from resource server
 		rc := client.NewResourceClient(nil)
-		resp, paymentRequired, err := rc.Check(method, resource, "", []byte(data))
+		resp, paymentRequired, err := rc.Check(method, url, "", []byte(data))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)

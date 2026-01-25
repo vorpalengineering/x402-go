@@ -17,9 +17,9 @@ import (
 func payCommand() {
 	// Define flags
 	payFlags := flag.NewFlagSet("pay", flag.ExitOnError)
-	var resource, method, payloadInput, requirementsInput, output, data string
-	payFlags.StringVar(&resource, "resource", "", "URL of the resource to pay for (required)")
-	payFlags.StringVar(&resource, "r", "", "URL of the resource to pay for (required)")
+	var url, method, payloadInput, requirementsInput, output, data string
+	payFlags.StringVar(&url, "url", "", "URL of the resource to pay for (required)")
+	payFlags.StringVar(&url, "u", "", "URL of the resource to pay for (required)")
 	payFlags.StringVar(&method, "method", "GET", "HTTP method (GET or POST)")
 	payFlags.StringVar(&method, "m", "GET", "HTTP method (GET or POST)")
 	payFlags.StringVar(&payloadInput, "payload", "", "Inner payload as JSON or file path (required)")
@@ -41,10 +41,10 @@ func payCommand() {
 	}
 
 	// Validate required flags
-	if resource == "" || payloadInput == "" || requirementsInput == "" {
-		fmt.Fprintln(os.Stderr, "Error: --resource, --payload, and --requirements flags are all required")
+	if url == "" || payloadInput == "" || requirementsInput == "" {
+		fmt.Fprintln(os.Stderr, "Error: --url, --payload, and --requirements flags are all required")
 		fmt.Fprintln(os.Stderr, "\nUsage:")
-		fmt.Fprintln(os.Stderr, "  x402cli pay -r <url> -p <payload-json|file> --req <requirements-json|file>")
+		fmt.Fprintln(os.Stderr, "  x402cli pay -u <url> -p <payload-json|file> --req <requirements-json|file>")
 		payFlags.PrintDefaults()
 		os.Exit(1)
 	}
@@ -86,7 +86,7 @@ func payCommand() {
 		dataBytes := readJSONOrFile(data)
 		reqBody = bytes.NewReader(dataBytes)
 	}
-	req, err := http.NewRequest(method, resource, reqBody)
+	req, err := http.NewRequest(method, url, reqBody)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating request: %v\n", err)
 		os.Exit(1)
