@@ -46,6 +46,15 @@ type MiddlewareConfig struct {
 	// instructions or information for users of your resources.
 	// Included in the /.well-known/x402 discovery response if non-empty.
 	Instructions string `json:"instructions,omitempty" toml:"instructions"`
+
+	// BaseURL is the public base URL of the server (e.g., "https://api.example.com")
+	// Used to construct full endpoint URLs in the discovery response.
+	BaseURL string `json:"baseUrl,omitempty" toml:"base_url"`
+
+	// DiscoverableEndpoints is a list of explicit endpoint paths
+	// to advertise in the /.well-known/x402 discovery response.
+	// These are combined with BaseURL to form full URLs (e.g., BaseURL + "/api/data").
+	DiscoverableEndpoints []string `json:"discoverableEndpoints,omitempty" toml:"discoverable_endpoints"`
 }
 
 func (c *MiddlewareConfig) Validate() error {

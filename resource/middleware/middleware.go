@@ -234,9 +234,15 @@ func setPaymentResponseHeader(ctx *gin.Context, response *types.SettleResponse) 
 }
 
 func (m *X402Middleware) serveDiscovery(ctx *gin.Context) {
+	// Build full URLs from BaseURL + DiscoverableEndpoints
+	resources := make([]string, len(m.config.DiscoverableEndpoints))
+	for i, endpoint := range m.config.DiscoverableEndpoints {
+		resources[i] = m.config.BaseURL + endpoint
+	}
+
 	discovery := gin.H{
 		"version":   1,
-		"resources": m.config.ProtectedPaths,
+		"resources": resources,
 	}
 	if len(m.config.OwnershipProofs) > 0 {
 		discovery["ownershipProofs"] = m.config.OwnershipProofs
