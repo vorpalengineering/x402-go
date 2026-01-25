@@ -26,25 +26,20 @@ type ResourceClient struct {
 }
 
 func NewResourceClient(privateKey *ecdsa.PrivateKey) *ResourceClient {
-	client := &ResourceClient{
+	rc := &ResourceClient{
 		httpClient: &http.Client{},
 		privateKey: privateKey,
 	}
 
 	// Only derive address if we have a private key
 	if privateKey != nil {
-		client.address = crypto.PubkeyToAddress(privateKey.PublicKey)
+		rc.address = crypto.PubkeyToAddress(privateKey.PublicKey)
 	}
 
-	return client
+	return rc
 }
 
-func (rc *ResourceClient) CheckForPaymentRequired(
-	method string,
-	url string,
-	contentType string,
-	body []byte,
-) (*http.Response, *types.PaymentRequired, error) {
+func (rc *ResourceClient) Check(method string, url string, contentType string, body []byte) (*http.Response, *types.PaymentRequired, error) {
 	// Make HTTP request
 	req, err := http.NewRequest(method, url, bytes.NewReader(body))
 	if err != nil {

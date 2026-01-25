@@ -43,7 +43,7 @@ func requirementsCommand() {
 	if resource != "" {
 		// Fetch requirements from resource server
 		rc := client.NewResourceClient(nil)
-		resp, paymentRequired, err := rc.CheckForPaymentRequired(method, resource, "", []byte(data))
+		resp, paymentRequired, err := rc.Check(method, resource, "", []byte(data))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
