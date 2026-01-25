@@ -12,13 +12,15 @@ import (
 func checkCommand() {
 	// Define flags for check command
 	checkFlags := flag.NewFlagSet("check", flag.ExitOnError)
-	var resource, output, method string
-	checkFlags.StringVar(&resource, "resource", "", "URL of the resource to check (required)")
-	checkFlags.StringVar(&resource, "r", "", "URL of the resource to check (required)")
+	var url, output, method, data string
+	checkFlags.StringVar(&url, "url", "", "URL of the resource to check (required)")
+	checkFlags.StringVar(&url, "u", "", "URL of the resource to check (required)")
 	checkFlags.StringVar(&output, "output", "", "File path to write JSON output")
 	checkFlags.StringVar(&output, "o", "", "File path to write JSON output")
 	checkFlags.StringVar(&method, "method", "GET", "HTTP method (GET or POST)")
 	checkFlags.StringVar(&method, "m", "GET", "HTTP method (GET or POST)")
+	checkFlags.StringVar(&data, "data", "", "Request body data")
+	checkFlags.StringVar(&data, "d", "", "Request body data")
 
 	// Parse flags
 	checkFlags.Parse(os.Args[2:])
@@ -30,20 +32,20 @@ func checkCommand() {
 	}
 
 	// Validate required flags
-	if resource == "" {
-		fmt.Fprintln(os.Stderr, "Error: --resource or -r flag is required")
+	if url == "" {
+		fmt.Fprintln(os.Stderr, "Error: --url or -u flag is required")
 		fmt.Fprintln(os.Stderr, "\nUsage:")
-		fmt.Fprintln(os.Stderr, "  x402cli check --resource <url>")
-		fmt.Fprintln(os.Stderr, "  x402cli check -r <url>")
+		fmt.Fprintln(os.Stderr, "  x402cli check --url <url>")
+		fmt.Fprintln(os.Stderr, "  x402cli check -u <url>")
 		checkFlags.PrintDefaults()
 		os.Exit(1)
 	}
 
 	// Create read-only client (no private key needed for checking)
-	c := client.NewClient(nil)
+	rc := client.NewResourceClient(nil)
 
 	// Check if payment is required
-	resp, paymentRequired, err := c.CheckForPaymentRequired(method, resource, "", nil)
+	resp, paymentRequired, err := rc.Check(method, url, "", []byte(data))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

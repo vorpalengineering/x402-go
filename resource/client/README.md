@@ -76,6 +76,21 @@ func NewClient(privateKey *ecdsa.PrivateKey) *Client
 
 Creates a new resource client. Pass `nil` for read-only usage (checking requirements without paying).
 
+### Browse
+
+```go
+func (c *Client) Browse(baseURL string) (*types.DiscoveryResponse, error)
+```
+
+Fetches the `/.well-known/x402` discovery endpoint for a server and returns the available protected endpoints.
+
+**Parameters:**
+- `baseURL` — The base URL of the server (trailing slash is optional)
+
+**Returns:**
+- `*types.DiscoveryResponse` — The discovery document containing protected endpoints
+- `error` — Any error that occurred
+
 ### CheckForPaymentRequired
 
 ```go
@@ -89,20 +104,57 @@ Makes an HTTP request and checks if payment is required.
 - `[]types.PaymentRequirements` — Acceptable payment options (empty if not 402)
 - `error` — Any error that occurred
 
-### GeneratePayment
+### Requirements
 
 ```go
-func (c *Client) GeneratePayment(requirements *types.PaymentRequirements) (string, error)
+func (c *ResourceClient) Requirements(method, url, contentType string, body []byte, index int) (*types.PaymentRequirements, error)
 ```
 
-Generates a base64-encoded payment payload for the `PAYMENT-SIGNATURE` header.
+Fetches payment requirements from a resource URL. Calls `Check()` and extracts a single `PaymentRequirements` from the accepts array.
+
+**Parameters:**
+- `method` — HTTP method (GET, POST, etc.)
+- `url` — URL of the resource to check
+- `contentType` — Content-Type header (empty string if not needed)
+- `body` — Request body (nil for GET requests)
+- `index` — Index into the accepts array (usually 0)
+
+**Returns:**
+- `*types.PaymentRequirements` — The selected payment requirements
+- `error` — If resource doesn't require payment (non-402) or index is out of bounds
+
+**Example:**
+```go
+c := client.NewResourceClient(nil) // No private key needed
+req, err := c.Requirements("GET", "https://api.example.com/data", "", nil, 0)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Payment required: %s %s on %s\n", req.Amount, req.Asset, req.Network)
+```
+
+### Payload
+
+```go
+func (c *ResourceClient) Payload(requirements *types.PaymentRequirements) (*types.PaymentPayload, error)
+```
+
+Generates a signed payment payload for the given requirements. Returns the raw `PaymentPayload` struct.
 
 **What it does:**
 1. Validates payment scheme (currently only `exact`)
 2. Parses amount, recipient, and token contract addresses
 3. Creates EIP-3009 `TransferWithAuthorization` (random nonce, 1-hour validity window)
 4. Signs with EIP-712 typed data
-5. Returns base64-encoded JSON payload
+5. Returns the `PaymentPayload` struct
+
+### utils.EncodePaymentHeader
+
+```go
+func utils.EncodePaymentHeader(payload *types.PaymentPayload) (string, error)
+```
+
+Encodes a `PaymentPayload` to a base64 string suitable for the `PAYMENT-SIGNATURE` header.
 
 ### PayForResource
 
@@ -113,6 +165,22 @@ func (c *Client) PayForResource(method, url, contentType string, body []byte, re
 Generates payment and makes the HTTP request with the `PAYMENT-SIGNATURE` header in one step.
 
 ## Usage Examples
+
+### Discovering Protected Endpoints
+
+```go
+c := client.NewClient(nil) // No private key needed for discovery
+baseURL := "https://api.example.com"
+
+discovery, err := c.Browse(baseURL)
+if err != nil {
+    log.Fatal(err)
+}
+
+for _, endpoint := range discovery.Endpoints {
+    fmt.Printf("%s %s - %s\n", endpoint.Method, endpoint.Path, endpoint.Description)
+}
+```
 
 ### Selecting a Payment Option
 
@@ -179,7 +247,13 @@ c := client.NewClient(privateKey)
 
 _, requirements, err := c.CheckForPaymentRequired("GET", url, "", nil)
 if len(requirements) > 0 {
-    paymentHeader, err := c.GeneratePayment(&requirements[0])
+    payload, err := c.Payload(&requirements[0])
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Encode for header
+    paymentHeader, err := utils.EncodePaymentHeader(payload)
     if err != nil {
         log.Fatal(err)
     }

@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,27 +19,51 @@ import (
 	"github.com/vorpalengineering/x402-go/utils"
 )
 
-type Client struct {
+type ResourceClient struct {
 	httpClient *http.Client
 	privateKey *ecdsa.PrivateKey
 	address    common.Address
 }
 
-func NewClient(privateKey *ecdsa.PrivateKey) *Client {
-	client := &Client{
+func NewResourceClient(privateKey *ecdsa.PrivateKey) *ResourceClient {
+	rc := &ResourceClient{
 		httpClient: &http.Client{},
 		privateKey: privateKey,
 	}
 
 	// Only derive address if we have a private key
 	if privateKey != nil {
-		client.address = crypto.PubkeyToAddress(privateKey.PublicKey)
+		rc.address = crypto.PubkeyToAddress(privateKey.PublicKey)
 	}
 
-	return client
+	return rc
 }
 
-func (c *Client) CheckForPaymentRequired(
+func (rc *ResourceClient) Browse(baseURL string) (*types.DiscoveryResponse, error) {
+	// Build discovery URL
+	discoveryURL := strings.TrimSuffix(baseURL, "/") + "/.well-known/x402"
+
+	// Make HTTP GET request
+	resp, err := rc.httpClient.Get(discoveryURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch discovery endpoint: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("discovery endpoint returned status %d", resp.StatusCode)
+	}
+
+	// Parse response
+	var discovery types.DiscoveryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&discovery); err != nil {
+		return nil, fmt.Errorf("failed to parse discovery response: %w", err)
+	}
+
+	return &discovery, nil
+}
+
+func (rc *ResourceClient) Check(
 	method string,
 	url string,
 	contentType string,
@@ -55,7 +79,7 @@ func (c *Client) CheckForPaymentRequired(
 		req.Header.Set("Content-Type", contentType)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := rc.httpClient.Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -80,90 +104,49 @@ func (c *Client) CheckForPaymentRequired(
 	return resp, &paymentResp, nil
 }
 
-func (c *Client) GeneratePayment(requirements *types.PaymentRequirements) (string, error) {
-	// Check that we have a private key for payment generation
-	if c.privateKey == nil {
-		return "", fmt.Errorf("cannot generate payment: client was created without a private key")
-	}
-
-	// Validate scheme
-	if requirements.Scheme != "exact" {
-		return "", fmt.Errorf("unsupported payment scheme: %s (only 'exact' is supported)", requirements.Scheme)
-	}
-
-	// Parse amount
-	value, ok := new(big.Int).SetString(requirements.Amount, 10)
-	if !ok {
-		return "", fmt.Errorf("invalid amount: %s", requirements.Amount)
-	}
-
-	// Parse recipient address
-	toAddress := common.HexToAddress(requirements.PayTo)
-	if toAddress == (common.Address{}) {
-		return "", fmt.Errorf("invalid recipient address: %s", requirements.PayTo)
-	}
-
-	// Parse asset (token contract) address
-	assetAddress := common.HexToAddress(requirements.Asset)
-	if assetAddress == (common.Address{}) {
-		return "", fmt.Errorf("invalid asset address: %s", requirements.Asset)
-	}
-
-	// Get chain ID for the network
-	chainID, err := utils.GetChainID(requirements.Network)
+// Requirements fetches payment requirements from a resource URL.
+// It calls Check() and extracts a single PaymentRequirements from the Accepts array.
+// Returns an error if the resource doesn't require payment (non-402) or if the index is out of bounds.
+func (rc *ResourceClient) Requirements(
+	method string,
+	url string,
+	contentType string,
+	body []byte,
+	index int,
+) (*types.PaymentRequirements, error) {
+	resp, paymentRequired, err := rc.Check(method, url, contentType, body)
 	if err != nil {
-		return "", fmt.Errorf("failed to get chain id: %s", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if paymentRequired == nil {
+		return nil, fmt.Errorf("resource returned status %d (not payment-protected)", resp.StatusCode)
 	}
 
-	// Generate EIP-3009 authorization
-	auth, err := CreateEIP3009Authorization(
-		c.privateKey,
-		c.address,
-		toAddress,
-		value,
-		assetAddress,
-		chainID.Int64(),
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to create EIP-3009 authorization: %w", err)
+	if index < 0 || index >= len(paymentRequired.Accepts) {
+		return nil, fmt.Errorf("index %d out of bounds (accepts array has %d entries)", index, len(paymentRequired.Accepts))
 	}
 
-	// Build payment payload
-	payload := types.PaymentPayload{
-		X402Version: 2,
-		Accepted:    *requirements,
-		Payload: map[string]any{
-			"signature": encodeSignature(auth.V, auth.R, auth.S),
-			"authorization": types.ExactEVMSchemeAuthorization{
-				From:        auth.From.Hex(),
-				To:          auth.To.Hex(),
-				Value:       auth.Value.String(),
-				ValidAfter:  auth.ValidAfter.Int64(),
-				ValidBefore: auth.ValidBefore.Int64(),
-				Nonce:       "0x" + hex.EncodeToString(auth.Nonce[:]),
-			},
-		},
-	}
-
-	// Encode to JSON
-	payloadJSON, err := json.Marshal(payload)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal payment payload: %w", err)
-	}
-
-	// Encode to base64
-	return base64.StdEncoding.EncodeToString(payloadJSON), nil
+	req := paymentRequired.Accepts[index]
+	return &req, nil
 }
 
-func (c *Client) PayForResource(
+func (rc *ResourceClient) Pay(
 	method string,
 	url string,
 	contentType string,
 	body []byte,
 	requirements *types.PaymentRequirements,
 ) (*http.Response, error) {
-	// Generate payment header
-	paymentHeader, err := c.GeneratePayment(requirements)
+	// Generate payment payload
+	payload, err := rc.Payload(requirements)
+	if err != nil {
+		return nil, err
+	}
+
+	// Encode to base64 for header
+	paymentHeader, err := utils.EncodePaymentHeader(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +162,7 @@ func (c *Client) PayForResource(
 	}
 	req.Header.Set("PAYMENT-SIGNATURE", paymentHeader)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := rc.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request with payment failed: %w", err)
 	}
@@ -187,13 +170,75 @@ func (c *Client) PayForResource(
 	return resp, nil
 }
 
-// encodeSignature converts EIP-3009 signature components (v, r, s) to hex string
-func encodeSignature(v uint8, r, s [32]byte) string {
-	sig := make([]byte, 65)
-	copy(sig[0:32], r[:])
-	copy(sig[32:64], s[:])
-	sig[64] = v - 27 // Convert from Ethereum's v (27/28) to standard (0/1)
-	return "0x" + hex.EncodeToString(sig)
+// Payload generates a signed payment payload for the given requirements.
+// Returns the raw PaymentPayload struct. Use utils.EncodePaymentHeader() to get
+// the base64-encoded string for the PAYMENT-SIGNATURE header.
+func (rc *ResourceClient) Payload(requirements *types.PaymentRequirements) (*types.PaymentPayload, error) {
+	// Check that we have a private key for payment generation
+	if rc.privateKey == nil {
+		return nil, fmt.Errorf("cannot generate payment: client was created without a private key")
+	}
+
+	// Validate scheme
+	if requirements.Scheme != "exact" {
+		return nil, fmt.Errorf("unsupported payment scheme: %s (only 'exact' is supported)", requirements.Scheme)
+	}
+
+	// Parse amount
+	value, ok := new(big.Int).SetString(requirements.Amount, 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid amount: %s", requirements.Amount)
+	}
+
+	// Parse recipient address
+	toAddress := common.HexToAddress(requirements.PayTo)
+	if toAddress == (common.Address{}) {
+		return nil, fmt.Errorf("invalid recipient address: %s", requirements.PayTo)
+	}
+
+	// Parse asset (token contract) address
+	assetAddress := common.HexToAddress(requirements.Asset)
+	if assetAddress == (common.Address{}) {
+		return nil, fmt.Errorf("invalid asset address: %s", requirements.Asset)
+	}
+
+	// Get chain ID for the network
+	chainID, err := utils.GetChainID(requirements.Network)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain id: %s", err)
+	}
+
+	// Generate EIP-3009 authorization
+	auth, err := CreateEIP3009Authorization(
+		rc.privateKey,
+		rc.address,
+		toAddress,
+		value,
+		assetAddress,
+		chainID.Int64(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create EIP-3009 authorization: %w", err)
+	}
+
+	// Build payment payload
+	payload := &types.PaymentPayload{
+		X402Version: 2,
+		Accepted:    *requirements,
+		Payload: map[string]any{
+			"signature": encodeSignature(auth.V, auth.R, auth.S),
+			"authorization": types.ExactEVMSchemeAuthorization{
+				From:        auth.From.Hex(),
+				To:          auth.To.Hex(),
+				Value:       auth.Value.String(),
+				ValidAfter:  auth.ValidAfter.Int64(),
+				ValidBefore: auth.ValidBefore.Int64(),
+				Nonce:       "0x" + hex.EncodeToString(auth.Nonce[:]),
+			},
+		},
+	}
+
+	return payload, nil
 }
 
 // TODO: make this a generic function for all tokens
@@ -220,6 +265,15 @@ func createDomainSeparator(verifyingContract common.Address, chainID *big.Int, n
 	)
 
 	return domainSeparator
+}
+
+// encodeSignature converts EIP-3009 signature components (v, r, s) to hex string
+func encodeSignature(v uint8, r, s [32]byte) string {
+	sig := make([]byte, 65)
+	copy(sig[0:32], r[:])
+	copy(sig[32:64], s[:])
+	sig[64] = v - 27 // Convert from Ethereum's v (27/28) to standard (0/1)
+	return "0x" + hex.EncodeToString(sig)
 }
 
 func generateNonce() ([32]byte, error) {

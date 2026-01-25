@@ -15,13 +15,13 @@ import (
 
 type X402Middleware struct {
 	config      *MiddlewareConfig
-	facilitator *client.Client
+	facilitator *client.FacilitatorClient
 }
 
 func NewX402Middleware(cfg *MiddlewareConfig) *X402Middleware {
 	return &X402Middleware{
 		config:      cfg,
-		facilitator: client.NewClient(cfg.FacilitatorURL),
+		facilitator: client.NewFacilitatorClient(cfg.FacilitatorURL),
 	}
 }
 
@@ -190,14 +190,21 @@ func (m *X402Middleware) getRequirements(path string) types.PaymentRequirements 
 
 func (m *X402Middleware) sendPaymentRequired(ctx *gin.Context, path string) {
 	requirements := m.getRequirements(path)
+	headerName := m.config.GetPaymentHeaderName()
+
+	resource := &types.ResourceInfo{
+		URL: path,
+	}
+	if r, exists := m.config.RouteResources[path]; exists {
+		resource.Description = r.Description
+		resource.MimeType = r.MimeType
+	}
+
 	response := types.PaymentRequired{
 		X402Version: 2,
-		Resource: &types.ResourceInfo{
-			URL:         path,
-			Description: "",
-			MimeType:    "",
-		},
-		Accepts: []types.PaymentRequirements{requirements},
+		Error:       headerName + " header is required",
+		Resource:    resource,
+		Accepts:     []types.PaymentRequirements{requirements},
 	}
 	setPaymentRequiredHeader(ctx, &response)
 	ctx.JSON(http.StatusPaymentRequired, response)
@@ -227,15 +234,17 @@ func setPaymentResponseHeader(ctx *gin.Context, response *types.SettleResponse) 
 }
 
 func (m *X402Middleware) serveDiscovery(ctx *gin.Context) {
-	discovery := gin.H{
-		"version":   1,
-		"resources": m.config.ProtectedPaths,
+	// Build full URLs from BaseURL + DiscoverableEndpoints
+	resources := make([]string, len(m.config.DiscoverableEndpoints))
+	for i, endpoint := range m.config.DiscoverableEndpoints {
+		resources[i] = m.config.BaseURL + endpoint
 	}
-	if len(m.config.OwnershipProofs) > 0 {
-		discovery["ownershipProofs"] = m.config.OwnershipProofs
-	}
-	if m.config.Instructions != "" {
-		discovery["instructions"] = m.config.Instructions
+
+	discovery := types.DiscoveryResponse{
+		Version:         1,
+		Resources:       resources,
+		OwnershipProofs: m.config.OwnershipProofs,
+		Instructions:    m.config.Instructions,
 	}
 	ctx.JSON(http.StatusOK, discovery)
 	ctx.Abort()

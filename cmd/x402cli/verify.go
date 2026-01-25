@@ -13,22 +13,23 @@ import (
 func verifyCommand() {
 	// Define flags for verify command
 	verifyFlags := flag.NewFlagSet("verify", flag.ExitOnError)
-	var facilitatorURL, payloadInput, requirementInput string
-	verifyFlags.StringVar(&facilitatorURL, "facilitator", "", "URL of the facilitator service (required)")
-	verifyFlags.StringVar(&facilitatorURL, "f", "", "URL of the facilitator service (required)")
+	var url, payloadInput, requirementsInput string
+	verifyFlags.StringVar(&url, "url", "", "URL of the facilitator service (required)")
+	verifyFlags.StringVar(&url, "u", "", "URL of the facilitator service (required)")
 	verifyFlags.StringVar(&payloadInput, "payload", "", "Payload object as JSON string or file path (required)")
 	verifyFlags.StringVar(&payloadInput, "p", "", "Payload object as JSON string or file path (required)")
-	verifyFlags.StringVar(&requirementInput, "requirement", "", "PaymentRequirements as JSON string or file path (required)")
-	verifyFlags.StringVar(&requirementInput, "r", "", "PaymentRequirements as JSON string or file path (required)")
+	verifyFlags.StringVar(&requirementsInput, "requirements", "", "PaymentRequirements as JSON string or file path (required)")
+	verifyFlags.StringVar(&requirementsInput, "req", "", "PaymentRequirements as JSON string or file path (required)")
+	verifyFlags.StringVar(&requirementsInput, "r", "", "PaymentRequirements as JSON string or file path (required)")
 
 	// Parse flags
 	verifyFlags.Parse(os.Args[2:])
 
 	// Validate required flags
-	if facilitatorURL == "" || payloadInput == "" || requirementInput == "" {
-		fmt.Fprintln(os.Stderr, "Error: --facilitator, --payload, and --requirement flags are all required")
+	if url == "" || payloadInput == "" || requirementsInput == "" {
+		fmt.Fprintln(os.Stderr, "Error: --url, --payload, and --requirement flags are all required")
 		fmt.Fprintln(os.Stderr, "\nUsage:")
-		fmt.Fprintln(os.Stderr, "  x402cli verify -f <url> -p <json|file> -r <json|file>")
+		fmt.Fprintln(os.Stderr, "  x402cli verify -u <url> -p <json|file> -r <json|file>")
 		verifyFlags.PrintDefaults()
 		os.Exit(1)
 	}
@@ -42,7 +43,7 @@ func verifyCommand() {
 	}
 
 	// Parse requirements (JSON string or file path)
-	requirementData := readJSONOrFile(requirementInput)
+	requirementData := readJSONOrFile(requirementsInput)
 	var requirements types.PaymentRequirements
 	if err := json.Unmarshal(requirementData, &requirements); err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing requirement JSON: %v\n", err)
@@ -60,8 +61,8 @@ func verifyCommand() {
 	}
 
 	// Call facilitator /verify
-	c := facilitatorclient.NewClient(facilitatorURL)
-	resp, err := c.Verify(&req)
+	fc := facilitatorclient.NewFacilitatorClient(url)
+	resp, err := fc.Verify(&req)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

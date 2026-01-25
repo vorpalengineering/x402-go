@@ -44,9 +44,17 @@ func main() {
             PayTo:   "0x123...",
             Asset:   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
         },
-        ProtectedPaths:   []string{"/api/*"},
+        ProtectedPaths: []string{"/api/*"},
+        RouteResources: map[string]*types.ResourceInfo{
+            "/api/data": {
+                Description: "Protected data endpoint",
+                MimeType:    "application/json",
+            },
+        },
         MaxBufferSize:    5 * 1024 * 1024, // 5 MB max response
         DiscoveryEnabled: true,
+        BaseURL:          "https://api.example.com",
+        DiscoverableEndpoints: []string{"/api/data"},
     })
 
     // Apply middleware globally
@@ -104,6 +112,15 @@ type MiddlewareConfig struct {
     // instructions or information for users of your resources.
     // Included in the discovery response if non-empty.
     Instructions string
+
+    // BaseURL is the public base URL of the server (e.g., "https://api.example.com")
+    // Used to construct full endpoint URLs in the discovery response.
+    BaseURL string
+
+    // DiscoverableEndpoints is a list of explicit endpoint paths
+    // to advertise in the discovery response.
+    // Combined with BaseURL to form full URLs (e.g., BaseURL + "/api/data").
+    DiscoverableEndpoints []string
 }
 ```
 
@@ -153,17 +170,25 @@ Enable the `/.well-known/x402` discovery endpoint to advertise protected resourc
 cfg := &middleware.MiddlewareConfig{
     // ...
     DiscoveryEnabled: true,
+    BaseURL:          "https://api.example.com",
+    DiscoverableEndpoints: []string{
+        "/api/data",
+        "/api/premium",
+    },
     OwnershipProofs: []string{"0xabc123..."}, // EIP-191 signatures proving URL ownership
     Instructions:    "This API provides premium weather data. Pay per request.",
 }
 ```
 
-The discovery endpoint responds with:
+The discovery endpoint responds with full endpoint URLs:
 
 ```json
 {
   "version": 1,
-  "resources": ["/api/*"],
+  "resources": [
+    "https://api.example.com/api/data",
+    "https://api.example.com/api/premium"
+  ],
   "ownershipProofs": ["0xabc123..."],
   "instructions": "This API provides premium weather data. Pay per request."
 }
@@ -232,8 +257,11 @@ The response is only sent to the client AFTER successful payment settlement. If 
 ```json
 {
   "x402Version": 2,
+  "error": "PAYMENT-SIGNATURE header is required",
   "resource": {
-    "url": "/api/data"
+    "url": "/api/data",
+    "description": "Protected data endpoint",
+    "mimeType": "application/json"
   },
   "accepts": [
     {
