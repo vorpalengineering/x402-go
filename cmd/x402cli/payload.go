@@ -17,6 +17,8 @@ import (
 	"github.com/vorpalengineering/x402-go/utils"
 )
 
+const DEFAULT_PAYLOAD_VALID_DURATION = 600 // 10 minutes in seconds
+
 func payloadCommand() {
 	// Define flags
 	payloadFlags := flag.NewFlagSet("payload", flag.ExitOnError)
@@ -111,6 +113,12 @@ func payloadCommand() {
 		}
 	}
 
+	// Validate mutually exclusive flags
+	if validBefore != 0 && validDuration != 0 {
+		fmt.Fprintln(os.Stderr, "Error: --valid-before and --valid-duration are mutually exclusive")
+		os.Exit(1)
+	}
+
 	// Resolve time window
 	now := time.Now().Unix()
 	if validAfter == 0 {
@@ -119,7 +127,7 @@ func payloadCommand() {
 	if validDuration > 0 {
 		validBefore = validAfter + validDuration
 	} else if validBefore == 0 {
-		validBefore = validAfter + 600 // default 10 minutes
+		validBefore = validAfter + DEFAULT_PAYLOAD_VALID_DURATION
 	}
 
 	// Resolve nonce
@@ -180,4 +188,3 @@ func payloadCommand() {
 		fmt.Println(string(jsonBytes))
 	}
 }
-
