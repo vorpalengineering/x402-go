@@ -26,6 +26,7 @@ func payCommand() {
 	payFlags.StringVar(&payloadInput, "p", "", "Inner payload as JSON or file path (required)")
 	payFlags.StringVar(&requirementsInput, "requirements", "", "PaymentRequirements as JSON or file path (required)")
 	payFlags.StringVar(&requirementsInput, "req", "", "PaymentRequirements as JSON or file path (required)")
+	payFlags.StringVar(&requirementsInput, "r", "", "PaymentRequirements as JSON or file path (required)")
 	payFlags.StringVar(&output, "output", "", "File path to write response body")
 	payFlags.StringVar(&output, "o", "", "File path to write response body")
 	payFlags.StringVar(&data, "data", "", "Request body as JSON string or file path")

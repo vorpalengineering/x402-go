@@ -13,19 +13,20 @@ import (
 func settleCommand() {
 	// Define flags for settle command
 	settleFlags := flag.NewFlagSet("settle", flag.ExitOnError)
-	var url, payloadInput, requirementInput string
+	var url, payloadInput, requirementsInput string
 	settleFlags.StringVar(&url, "url", "", "URL of the facilitator service (required)")
 	settleFlags.StringVar(&url, "u", "", "URL of the facilitator service (required)")
 	settleFlags.StringVar(&payloadInput, "payload", "", "Payload object as JSON string or file path (required)")
 	settleFlags.StringVar(&payloadInput, "p", "", "Payload object as JSON string or file path (required)")
-	settleFlags.StringVar(&requirementInput, "requirement", "", "PaymentRequirements as JSON string or file path (required)")
-	settleFlags.StringVar(&requirementInput, "r", "", "PaymentRequirements as JSON string or file path (required)")
+	settleFlags.StringVar(&requirementsInput, "requirements", "", "PaymentRequirements as JSON string or file path (required)")
+	settleFlags.StringVar(&requirementsInput, "req", "", "PaymentRequirements as JSON string or file path (required)")
+	settleFlags.StringVar(&requirementsInput, "r", "", "PaymentRequirements as JSON string or file path (required)")
 
 	// Parse flags
 	settleFlags.Parse(os.Args[2:])
 
 	// Validate required flags
-	if url == "" || payloadInput == "" || requirementInput == "" {
+	if url == "" || payloadInput == "" || requirementsInput == "" {
 		fmt.Fprintln(os.Stderr, "Error: --url, --payload, and --requirement flags are all required")
 		fmt.Fprintln(os.Stderr, "\nUsage:")
 		fmt.Fprintln(os.Stderr, "  x402cli settle -u <url> -p <json|file> -r <json|file>")
@@ -42,7 +43,7 @@ func settleCommand() {
 	}
 
 	// Parse requirements (JSON string or file path)
-	requirementData := readJSONOrFile(requirementInput)
+	requirementData := readJSONOrFile(requirementsInput)
 	var requirements types.PaymentRequirements
 	if err := json.Unmarshal(requirementData, &requirements); err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing requirement JSON: %v\n", err)

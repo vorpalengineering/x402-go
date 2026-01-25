@@ -41,7 +41,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, "x402cli - CLI tool for interacting with x402-protected resources")
+	fmt.Fprintln(os.Stderr, "x402cli - CLI tool for interacting with the x402 stack")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  x402cli <command> [flags]")

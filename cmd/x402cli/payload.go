@@ -41,6 +41,7 @@ func payloadCommand() {
 	var requirementsInput string
 	payloadFlags.StringVar(&requirementsInput, "requirements", "", "PaymentRequirements as JSON or file path")
 	payloadFlags.StringVar(&requirementsInput, "req", "", "PaymentRequirements as JSON or file path")
+	payloadFlags.StringVar(&requirementsInput, "r", "", "PaymentRequirements as JSON or file path")
 
 	// Parse flags
 	payloadFlags.Parse(os.Args[2:])

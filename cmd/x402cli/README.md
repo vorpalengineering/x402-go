@@ -84,7 +84,7 @@ Flags:
 - `-u`, `--url` — URL of the resource (required)
 - `-m`, `--method` — HTTP method, GET or POST (default: GET)
 - `-p`, `--payload` — inner payload as JSON or file path (required, output of `payload` command)
-- `--req`, `--requirements` — PaymentRequirements as JSON or file path (required)
+- `-r`, `--req`, `--requirements` — PaymentRequirements as JSON or file path (required)
 - `-d`, `--data` — request body as JSON string or file path (optional, sets Content-Type: application/json)
 - `-o`, `--output` — file path to write response body (default: stdout)
 
@@ -110,7 +110,7 @@ x402cli verify -u <facilitator-url> -p <json|file> -r <json|file>
 Flags:
 - `-u`, `--url` — facilitator URL (required)
 - `-p`, `--payload` — payload object as JSON or file path (required)
-- `-r`, `--requirement` — payment requirements as JSON or file path (required)
+- `-r`, `--req`, `--requirements` — payment requirements as JSON or file path (required)
 
 ### settle
 
@@ -123,7 +123,7 @@ x402cli settle -u <facilitator-url> -p <payload-json|file> -r <requirements-json
 Flags:
 - `-u`, `--url` — facilitator URL (required)
 - `-p`, `--payload` — payload object as JSON or file path (required)
-- `-r`, `--requirement` — payment requirements as JSON or file path (required)
+- `-r`, `--req`, `--requirements` — payment requirements as JSON or file path (required)
 
 ### payload
 
@@ -143,7 +143,7 @@ Flags:
 - `--name` — EIP-712 domain name (required with --private-key)
 - `--version` — EIP-712 domain version (required with --private-key)
 - `--chain-id` — chain ID (required with --private-key)
-- `--req`, `--requirements` — PaymentRequirements as JSON or file path (see note below)
+- `-r`, `--req`, `--requirements` — PaymentRequirements as JSON or file path (see note below)
 - `--valid-after` — unix timestamp (default: now)
 - `--valid-before` — unix timestamp (default: now + 10min)
 - `--valid-duration` — seconds, alternative to --valid-before
