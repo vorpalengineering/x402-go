@@ -20,7 +20,9 @@ x402cli
 ├── settle       Settle a payment payload (facilitator)
 ├── payload      Generate a payment payload with EIP-3009 authorization
 ├── req          Generate a payment requirements object
-└── proof        Generate an ownership proof signature for a resource URL
+└── proof        
+    ├── gen      Generate an ownership proof signature for a resource URL
+    └── verify   Verify an ownership proof for a resource URL
 ```
 
 ### browse

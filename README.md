@@ -2,6 +2,35 @@
 
 Go implementation of the [x402 protocol](https://github.com/coinbase/x402) (v2) for verifiable on-chain payments.
 
+## Using x402-go...
+
+### As A Buyer
+
+1. Browse available resources with `x402cli browse` or `ResourceClient.Browse()`
+2. Check available payment requirements with `x402 check` or `ResourceClient.Check()`
+3. Select and fetch payment requirement with `x402 req` or `ResourceClient.Requirements()`
+4. Create and sign payment payload with `x402 payload` or `ResourceClient.Payload()`
+5. Pay for resource with `x402 pay` or `ResourceClient.Pay()`
+
+### As A Seller
+
+1. Integrate the `X402Middleware` handler into your Gin API.
+2. Configure the middleware to protect API routes with payment requirements.
+3. Generate and verify ownership proofs with `x402cli proof gen` and `x402cli proof verify`
+4. Test your configuration with the `x402cli` or `ResourceClient`.
+
+OR
+
+1. Integrate the `FacilitatorClient` directly into your Golang API.
+2. Configure the client to handle payment actions.
+3. Check facilitator supported networks and schemes with `FacilitatorClient.Supported()`
+4. Verify payment payload validity with `FacilitatorClient.Verify()`
+5. Settle payment payload with `FacilitatorClient.Settle()`
+
+### As An Operator
+
+1. Configure and run the `Facilitator` service.
+
 ## Project Structure
 
 ```
@@ -30,10 +59,7 @@ Command-line tool for checking x402-protected resources.
 go build ./cmd/x402cli
 
 # Get supported data from facilitator
-./x402cli supported --facilitator http://localhost:4020
-
-# Short flag form
-./x402cli supported -f http://localhost:4020
+./x402cli supported -u http://localhost:4020
 
 ```
 
@@ -74,22 +100,22 @@ if err != nil {
 }
 
 // Create resource client
-c := client.NewClient(privateKey)
+rc := client.NewResourceClient(privateKey)
 
 // Step 1: Check if resource requires payment
-resp, requirements, err := c.CheckForPaymentRequired("GET", "https://api.example.com/data", "", nil)
+resp, paymentRequired, err := rc.Check("GET", "https://api.example.com/data", "", nil)
 if err != nil {
     log.Fatal(err)
 }
 
 // Step 2: If payment required, inspect requirements and decide to pay
-if len(requirements) > 0 {
-    selected := requirements[0]
+if paymentRequired != nil {
+    selected := paymentRequired.Accepts[0]
 
     log.Printf("Payment required: %s on %s", selected.Amount, selected.Network)
 
     // Step 3: Pay for resource (generates EIP-3009 authorization and sends PAYMENT-SIGNATURE header)
-    resp, err = c.PayForResource("GET", "https://api.example.com/data", "", nil, &selected)
+    resp, err = rc.Pay("GET", "https://api.example.com/data", "", nil, &selected)
     if err != nil {
         log.Fatal(err)
     }
