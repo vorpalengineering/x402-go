@@ -37,7 +37,7 @@ func TestVerify(t *testing.T) {
 		defer server.Close()
 
 		// Create client
-		client := NewClient(server.URL)
+		fc := NewFacilitatorClient(server.URL)
 
 		// Make request
 		req := &types.VerifyRequest{
@@ -54,7 +54,7 @@ func TestVerify(t *testing.T) {
 			},
 		}
 
-		resp, err := client.Verify(req)
+		resp, err := fc.Verify(req)
 		if err != nil {
 			t.Fatalf("Verify failed: %v", err)
 		}
@@ -77,10 +77,10 @@ func TestVerify(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := NewClient(server.URL)
+		fc := NewFacilitatorClient(server.URL)
 		req := &types.VerifyRequest{}
 
-		resp, err := client.Verify(req)
+		resp, err := fc.Verify(req)
 		if err != nil {
 			t.Fatalf("Verify failed: %v", err)
 		}
@@ -99,10 +99,10 @@ func TestVerify(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := NewClient(server.URL)
+		fc := NewFacilitatorClient(server.URL)
 		req := &types.VerifyRequest{}
 
-		_, err := client.Verify(req)
+		_, err := fc.Verify(req)
 		if err == nil {
 			t.Error("Expected error for 500 status, got nil")
 		}
@@ -131,7 +131,7 @@ func TestSettle(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := NewClient(server.URL)
+		fc := NewFacilitatorClient(server.URL)
 		req := &types.SettleRequest{
 			PaymentPayload: types.PaymentPayload{
 				X402Version: 2,
@@ -146,7 +146,7 @@ func TestSettle(t *testing.T) {
 			},
 		}
 
-		resp, err := client.Settle(req)
+		resp, err := fc.Settle(req)
 		if err != nil {
 			t.Fatalf("Settle failed: %v", err)
 		}
@@ -174,10 +174,10 @@ func TestSettle(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := NewClient(server.URL)
+		fc := NewFacilitatorClient(server.URL)
 		req := &types.SettleRequest{}
 
-		resp, err := client.Settle(req)
+		resp, err := fc.Settle(req)
 		if err != nil {
 			t.Fatalf("Settle failed: %v", err)
 		}
@@ -214,8 +214,8 @@ func TestSupported(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := NewClient(server.URL)
-		resp, err := client.Supported()
+		fc := NewFacilitatorClient(server.URL)
+		resp, err := fc.Supported()
 		if err != nil {
 			t.Fatalf("Supported failed: %v", err)
 		}
@@ -242,8 +242,8 @@ func TestSupported(t *testing.T) {
 		}))
 		defer server.Close()
 
-		client := NewClient(server.URL)
-		resp, err := client.Supported()
+		fc := NewFacilitatorClient(server.URL)
+		resp, err := fc.Supported()
 		if err != nil {
 			t.Fatalf("Supported failed: %v", err)
 		}

@@ -9,21 +9,21 @@ import (
 	"github.com/vorpalengineering/x402-go/types"
 )
 
-type Client struct {
+type FacilitatorClient struct {
 	facilitatorURL string
 	httpClient     *http.Client
 }
 
-func NewClient(facilitatorURL string) *Client {
-	return &Client{
+func NewFacilitatorClient(facilitatorURL string) *FacilitatorClient {
+	return &FacilitatorClient{
 		facilitatorURL: facilitatorURL,
 		httpClient:     &http.Client{},
 	}
 }
 
-func (client *Client) Verify(req *types.VerifyRequest) (*types.VerifyResponse, error) {
+func (fc *FacilitatorClient) Verify(req *types.VerifyRequest) (*types.VerifyResponse, error) {
 	// Build verify endpoint url
-	url := fmt.Sprintf("%s/verify", client.facilitatorURL)
+	url := fmt.Sprintf("%s/verify", fc.facilitatorURL)
 
 	// Encode request
 	body, err := json.Marshal(req)
@@ -32,7 +32,7 @@ func (client *Client) Verify(req *types.VerifyRequest) (*types.VerifyResponse, e
 	}
 
 	// Make request to facilitator
-	resp, err := client.httpClient.Post(url, "application/json", bytes.NewBuffer(body))
+	resp, err := fc.httpClient.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
@@ -52,9 +52,9 @@ func (client *Client) Verify(req *types.VerifyRequest) (*types.VerifyResponse, e
 	return &verifyResp, nil
 }
 
-func (client *Client) Settle(req *types.SettleRequest) (*types.SettleResponse, error) {
+func (fc *FacilitatorClient) Settle(req *types.SettleRequest) (*types.SettleResponse, error) {
 	// Build settle endpoint url
-	url := fmt.Sprintf("%s/settle", client.facilitatorURL)
+	url := fmt.Sprintf("%s/settle", fc.facilitatorURL)
 
 	// Encode request
 	body, err := json.Marshal(req)
@@ -63,7 +63,7 @@ func (client *Client) Settle(req *types.SettleRequest) (*types.SettleResponse, e
 	}
 
 	// Make request to facilitator
-	resp, err := client.httpClient.Post(url, "application/json", bytes.NewBuffer(body))
+	resp, err := fc.httpClient.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
@@ -83,12 +83,12 @@ func (client *Client) Settle(req *types.SettleRequest) (*types.SettleResponse, e
 	return &settleResp, nil
 }
 
-func (client *Client) Supported() (*types.SupportedResponse, error) {
+func (fc *FacilitatorClient) Supported() (*types.SupportedResponse, error) {
 	// Build supported endpoint url
-	url := fmt.Sprintf("%s/supported", client.facilitatorURL)
+	url := fmt.Sprintf("%s/supported", fc.facilitatorURL)
 
 	// Make request to facilitator
-	resp, err := client.httpClient.Get(url)
+	resp, err := fc.httpClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}

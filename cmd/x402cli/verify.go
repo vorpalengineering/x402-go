@@ -60,8 +60,8 @@ func verifyCommand() {
 	}
 
 	// Call facilitator /verify
-	c := facilitatorclient.NewClient(facilitatorURL)
-	resp, err := c.Verify(&req)
+	fc := facilitatorclient.NewFacilitatorClient(facilitatorURL)
+	resp, err := fc.Verify(&req)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

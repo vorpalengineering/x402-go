@@ -30,8 +30,8 @@ func supportedCommand() {
 	}
 
 	// Create facilitator client and call /supported
-	c := facilitatorclient.NewClient(facilitatorURL)
-	resp, err := c.Supported()
+	fc := facilitatorclient.NewFacilitatorClient(facilitatorURL)
+	resp, err := fc.Supported()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

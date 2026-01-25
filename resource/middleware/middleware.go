@@ -15,13 +15,13 @@ import (
 
 type X402Middleware struct {
 	config      *MiddlewareConfig
-	facilitator *client.Client
+	facilitator *client.FacilitatorClient
 }
 
 func NewX402Middleware(cfg *MiddlewareConfig) *X402Middleware {
 	return &X402Middleware{
 		config:      cfg,
-		facilitator: client.NewClient(cfg.FacilitatorURL),
+		facilitator: client.NewFacilitatorClient(cfg.FacilitatorURL),
 	}
 }
 
