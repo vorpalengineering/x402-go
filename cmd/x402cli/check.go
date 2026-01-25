@@ -42,10 +42,10 @@ func checkCommand() {
 	}
 
 	// Create read-only client (no private key needed for checking)
-	c := client.NewClient(nil)
+	rc := client.NewResourceClient(nil)
 
 	// Check if payment is required
-	resp, paymentRequired, err := c.CheckForPaymentRequired(method, resource, "", []byte(data))
+	resp, paymentRequired, err := rc.CheckForPaymentRequired(method, resource, "", []byte(data))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

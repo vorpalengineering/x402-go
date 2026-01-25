@@ -19,14 +19,14 @@ import (
 	"github.com/vorpalengineering/x402-go/utils"
 )
 
-type Client struct {
+type ResourceClient struct {
 	httpClient *http.Client
 	privateKey *ecdsa.PrivateKey
 	address    common.Address
 }
 
-func NewClient(privateKey *ecdsa.PrivateKey) *Client {
-	client := &Client{
+func NewResourceClient(privateKey *ecdsa.PrivateKey) *ResourceClient {
+	client := &ResourceClient{
 		httpClient: &http.Client{},
 		privateKey: privateKey,
 	}
@@ -39,7 +39,7 @@ func NewClient(privateKey *ecdsa.PrivateKey) *Client {
 	return client
 }
 
-func (c *Client) CheckForPaymentRequired(
+func (rc *ResourceClient) CheckForPaymentRequired(
 	method string,
 	url string,
 	contentType string,
@@ -55,7 +55,7 @@ func (c *Client) CheckForPaymentRequired(
 		req.Header.Set("Content-Type", contentType)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := rc.httpClient.Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -80,9 +80,9 @@ func (c *Client) CheckForPaymentRequired(
 	return resp, &paymentResp, nil
 }
 
-func (c *Client) GeneratePayment(requirements *types.PaymentRequirements) (string, error) {
+func (rc *ResourceClient) GeneratePayment(requirements *types.PaymentRequirements) (string, error) {
 	// Check that we have a private key for payment generation
-	if c.privateKey == nil {
+	if rc.privateKey == nil {
 		return "", fmt.Errorf("cannot generate payment: client was created without a private key")
 	}
 
@@ -117,8 +117,8 @@ func (c *Client) GeneratePayment(requirements *types.PaymentRequirements) (strin
 
 	// Generate EIP-3009 authorization
 	auth, err := CreateEIP3009Authorization(
-		c.privateKey,
-		c.address,
+		rc.privateKey,
+		rc.address,
 		toAddress,
 		value,
 		assetAddress,
@@ -155,7 +155,7 @@ func (c *Client) GeneratePayment(requirements *types.PaymentRequirements) (strin
 	return base64.StdEncoding.EncodeToString(payloadJSON), nil
 }
 
-func (c *Client) PayForResource(
+func (rc *ResourceClient) PayForResource(
 	method string,
 	url string,
 	contentType string,
@@ -163,7 +163,7 @@ func (c *Client) PayForResource(
 	requirements *types.PaymentRequirements,
 ) (*http.Response, error) {
 	// Generate payment header
-	paymentHeader, err := c.GeneratePayment(requirements)
+	paymentHeader, err := rc.GeneratePayment(requirements)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func (c *Client) PayForResource(
 	}
 	req.Header.Set("PAYMENT-SIGNATURE", paymentHeader)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := rc.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request with payment failed: %w", err)
 	}
