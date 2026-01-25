@@ -105,6 +105,34 @@ func (rc *ResourceClient) Check(
 	return resp, &paymentResp, nil
 }
 
+// Requirements fetches payment requirements from a resource URL.
+// It calls Check() and extracts a single PaymentRequirements from the Accepts array.
+// Returns an error if the resource doesn't require payment (non-402) or if the index is out of bounds.
+func (rc *ResourceClient) Requirements(
+	method string,
+	url string,
+	contentType string,
+	body []byte,
+	index int,
+) (*types.PaymentRequirements, error) {
+	resp, paymentRequired, err := rc.Check(method, url, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if paymentRequired == nil {
+		return nil, fmt.Errorf("resource returned status %d (not payment-protected)", resp.StatusCode)
+	}
+
+	if index < 0 || index >= len(paymentRequired.Accepts) {
+		return nil, fmt.Errorf("index %d out of bounds (accepts array has %d entries)", index, len(paymentRequired.Accepts))
+	}
+
+	req := paymentRequired.Accepts[index]
+	return &req, nil
+}
+
 func (rc *ResourceClient) Pay(
 	method string,
 	url string,

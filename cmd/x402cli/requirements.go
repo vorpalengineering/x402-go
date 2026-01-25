@@ -43,24 +43,12 @@ func requirementsCommand() {
 	if url != "" {
 		// Fetch requirements from resource server
 		rc := client.NewResourceClient(nil)
-		resp, paymentRequired, err := rc.Check(method, url, "", []byte(data))
+		fetched, err := rc.Requirements(method, url, "", []byte(data), index)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		defer resp.Body.Close()
-
-		if paymentRequired == nil {
-			fmt.Fprintf(os.Stderr, "Error: resource returned status %d (not payment-protected)\n", resp.StatusCode)
-			os.Exit(1)
-		}
-
-		if index >= len(paymentRequired.Accepts) {
-			fmt.Fprintf(os.Stderr, "Error: index %d out of bounds (accepts array has %d entries)\n", index, len(paymentRequired.Accepts))
-			os.Exit(1)
-		}
-
-		req = paymentRequired.Accepts[index]
+		req = *fetched
 	}
 
 	// Apply individual flag overrides

@@ -104,6 +104,35 @@ Makes an HTTP request and checks if payment is required.
 - `[]types.PaymentRequirements` — Acceptable payment options (empty if not 402)
 - `error` — Any error that occurred
 
+### Requirements
+
+```go
+func (c *ResourceClient) Requirements(method, url, contentType string, body []byte, index int) (*types.PaymentRequirements, error)
+```
+
+Fetches payment requirements from a resource URL. Calls `Check()` and extracts a single `PaymentRequirements` from the accepts array.
+
+**Parameters:**
+- `method` — HTTP method (GET, POST, etc.)
+- `url` — URL of the resource to check
+- `contentType` — Content-Type header (empty string if not needed)
+- `body` — Request body (nil for GET requests)
+- `index` — Index into the accepts array (usually 0)
+
+**Returns:**
+- `*types.PaymentRequirements` — The selected payment requirements
+- `error` — If resource doesn't require payment (non-402) or index is out of bounds
+
+**Example:**
+```go
+c := client.NewResourceClient(nil) // No private key needed
+req, err := c.Requirements("GET", "https://api.example.com/data", "", nil, 0)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Payment required: %s %s on %s\n", req.Amount, req.Asset, req.Network)
+```
+
 ### GeneratePayment
 
 ```go
