@@ -4,12 +4,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
-	"strings"
 
-	"github.com/vorpalengineering/x402-go/types"
+	"github.com/vorpalengineering/x402-go/resource/client"
 )
 
 func browseCommand() {
@@ -31,37 +28,16 @@ func browseCommand() {
 		os.Exit(1)
 	}
 
-	// Build discovery URL
-	discoveryURL := strings.TrimSuffix(baseURL, "/") + "/.well-known/x402"
-
-	// Fetch discovery document
-	resp, err := http.Get(discoveryURL)
+	// Create client and fetch discovery document
+	rc := client.NewResourceClient(nil)
+	discovery, err := rc.Browse(baseURL)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error fetching discovery endpoint: %v\n", err)
-		os.Exit(1)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(os.Stderr, "Discovery endpoint returned status %d\n", resp.StatusCode)
-		os.Exit(1)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading response: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Parse response
-	var discovery types.DiscoveryResponse
-	if err := json.Unmarshal(body, &discovery); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing discovery response: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Marshal to pretty JSON
-	jsonBytes, err := json.MarshalIndent(discovery, "", "  ")
+	jsonBytes, err := json.MarshalIndent(*discovery, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error formatting response: %v\n", err)
 		os.Exit(1)

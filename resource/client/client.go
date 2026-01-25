@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -39,7 +40,36 @@ func NewResourceClient(privateKey *ecdsa.PrivateKey) *ResourceClient {
 	return rc
 }
 
-func (rc *ResourceClient) Check(method string, url string, contentType string, body []byte) (*http.Response, *types.PaymentRequired, error) {
+func (rc *ResourceClient) Browse(baseURL string) (*types.DiscoveryResponse, error) {
+	// Build discovery URL
+	discoveryURL := strings.TrimSuffix(baseURL, "/") + "/.well-known/x402"
+
+	// Make HTTP GET request
+	resp, err := rc.httpClient.Get(discoveryURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch discovery endpoint: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("discovery endpoint returned status %d", resp.StatusCode)
+	}
+
+	// Parse response
+	var discovery types.DiscoveryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&discovery); err != nil {
+		return nil, fmt.Errorf("failed to parse discovery response: %w", err)
+	}
+
+	return &discovery, nil
+}
+
+func (rc *ResourceClient) Check(
+	method string,
+	url string,
+	contentType string,
+	body []byte,
+) (*http.Response, *types.PaymentRequired, error) {
 	// Make HTTP request
 	req, err := http.NewRequest(method, url, bytes.NewReader(body))
 	if err != nil {

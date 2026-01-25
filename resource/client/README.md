@@ -76,6 +76,21 @@ func NewClient(privateKey *ecdsa.PrivateKey) *Client
 
 Creates a new resource client. Pass `nil` for read-only usage (checking requirements without paying).
 
+### Browse
+
+```go
+func (c *Client) Browse(baseURL string) (*types.DiscoveryResponse, error)
+```
+
+Fetches the `/.well-known/x402` discovery endpoint for a server and returns the available protected endpoints.
+
+**Parameters:**
+- `baseURL` — The base URL of the server (trailing slash is optional)
+
+**Returns:**
+- `*types.DiscoveryResponse` — The discovery document containing protected endpoints
+- `error` — Any error that occurred
+
 ### CheckForPaymentRequired
 
 ```go
@@ -113,6 +128,22 @@ func (c *Client) PayForResource(method, url, contentType string, body []byte, re
 Generates payment and makes the HTTP request with the `PAYMENT-SIGNATURE` header in one step.
 
 ## Usage Examples
+
+### Discovering Protected Endpoints
+
+```go
+c := client.NewClient(nil) // No private key needed for discovery
+baseURL := "https://api.example.com"
+
+discovery, err := c.Browse(baseURL)
+if err != nil {
+    log.Fatal(err)
+}
+
+for _, endpoint := range discovery.Endpoints {
+    fmt.Printf("%s %s - %s\n", endpoint.Method, endpoint.Path, endpoint.Description)
+}
+```
 
 ### Selecting a Payment Option
 
