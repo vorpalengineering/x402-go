@@ -180,6 +180,43 @@ Flags:
 
 When `-u` is provided, the command fetches the PaymentRequired response from the resource server and uses `accepts[index]` as the base. Individual flags override fields from the fetched requirements.
 
+### proof
+
+Ownership proof commands for signing and verifying resource URLs. The signatures can be used in the `ownershipProofs` field of a `.well-known/x402` discovery response.
+
+```
+x402cli proof <subcommand> [flags]
+```
+
+Subcommands:
+- `gen` — Generate an ownership proof signature
+- `verify` — Verify an ownership proof signature
+
+#### proof gen
+
+Generate an EIP-191 personal sign ownership proof for a resource URL.
+
+```
+x402cli proof gen -u https://api.example.com --private-key 0x...
+```
+
+Flags:
+- `-u`, `--url` — URL to sign (required)
+- `--private-key` — hex-encoded private key for signing (required)
+
+#### proof verify
+
+Verify an ownership proof signature against an expected address.
+
+```
+x402cli proof verify -u https://api.example.com -p 0x... -a 0x...
+```
+
+Flags:
+- `-u`, `--url` — URL that was signed (required)
+- `-p`, `--proof` — proof signature in hex (required)
+- `-a`, `--address` — expected signer address (required)
+
 ## Docker
 
 A multi-stage Dockerfile is provided at `cmd/x402cli/Dockerfile`. It produces a minimal Alpine-based image containing only the `x402cli` binary.
@@ -211,15 +248,3 @@ The CLI is defined as a service in the project-level `docker-compose.yml` under 
 docker compose run --rm x402cli supported -u http://facilitator:4020
 docker compose run --rm x402cli check -u https://api.example.com/data
 ```
-
-### proof
-
-Generate an EIP-191 personal sign ownership proof for a resource URL. The signature can be used in the `ownershipProofs` field of a `.well-known/x402` discovery response.
-
-```
-x402cli proof -u https://api.example.com --private-key 0x...
-```
-
-Flags:
-- `-u`, `--url` — URL to sign (required)
-- `--private-key` — hex-encoded private key for signing (required)
