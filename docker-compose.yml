@@ -11,12 +11,3 @@ services:
     environment:
       - X402_FACILITATOR_PRIVATE_KEY
     restart: unless-stopped
-
-  x402cli:
-    build:
-      context: .
-      dockerfile: cmd/x402cli/Dockerfile
-    environment:
-      - X402_FACILITATOR_PRIVATE_KEY
-    profiles:
-      - cli

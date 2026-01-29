@@ -7,10 +7,10 @@ Go implementation of the [x402 protocol](https://github.com/coinbase/x402) (v2) 
 ### As A Buyer
 
 1. Browse available resources with `x402cli browse` or `ResourceClient.Browse()`
-2. Check available payment requirements with `x402 check` or `ResourceClient.Check()`
-3. Select and fetch payment requirement with `x402 req` or `ResourceClient.Requirements()`
-4. Create and sign payment payload with `x402 payload` or `ResourceClient.Payload()`
-5. Pay for resource with `x402 pay` or `ResourceClient.Pay()`
+2. Check available payment requirements with `x402cli check` or `ResourceClient.Check()`
+3. Select and fetch payment requirement with `x402cli req` or `ResourceClient.Requirements()`
+4. Create and sign payment payload with `x402cli payload` or `ResourceClient.Payload()`
+5. Pay for resource with `x402cli pay` or `ResourceClient.Pay()`
 
 ### As A Seller
 
@@ -216,13 +216,13 @@ import (
     "github.com/vorpalengineering/x402-go/types"
 )
 
-c := client.NewClient("http://localhost:4020")
+fc := client.NewFacilitatorClient("http://localhost:4020")
 
 // Get supported schemes
-supported, err := c.Supported()
+supported, err := fc.Supported()
 
 // Verify a payment
-verifyResp, err := c.Verify(&types.VerifyRequest{
+verifyResp, err := fc.Verify(&types.VerifyRequest{
     PaymentPayload: paymentPayload,
     PaymentRequirements: types.PaymentRequirements{
         Scheme:  "exact",
@@ -237,7 +237,7 @@ if verifyResp.IsValid {
 }
 
 // Settle a payment
-settleResp, err := c.Settle(&types.SettleRequest{
+settleResp, err := fc.Settle(&types.SettleRequest{
     PaymentPayload:      paymentPayload,
     PaymentRequirements: requirements,
 })
@@ -256,7 +256,7 @@ export X402_FACILITATOR_PRIVATE_KEY=0x...
 docker compose up facilitator
 
 # Run a CLI command
-docker compose run --rm x402cli supported -f http://facilitator:4020
+docker compose run --rm x402cli supported -u http://facilitator:4020
 
 # Build images without starting
 docker compose build

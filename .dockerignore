@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+
+# Config files (may contain local settings)
+facilitator/config.yaml
+*.env
+.env*
+
+# IDE and editor files
+.idea
+.vscode
+*.swp
+*.swo
+
+# Documentation
+*.md
+!README.md
+
+# Test files
+*_test.go
+
+# Build artifacts
+bin/
+dist/
+
+# CI/CD
+.github/
